@@ -1,0 +1,66 @@
+﻿# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# Environments
+.env
+.venv/
+venv/
+env/
+conda-meta/
+
+# Logs and experiment outputs
+logs/
+reports/*/
+outputs/
+runs/
+wandb/
+tensorboard/
+nohup.out
+*.log
+*.out
+
+# Checkpoints and model caches
+checkpoints/*
+!checkpoints/README.md
+gpt2_cache/
+*.pth
+*.pt
+*.ckpt
+*.safetensors
+*.bin
+
+# Datasets and generated arrays
+data/*
+!data/README.md
+*.h5
+*.hdf5
+*.npy
+*.npz
+*.dat
+*.csv
+*.pkl
+*.pickle
+
+# Archives
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.rar
+*.7z
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Accidental shell-argument files
+--*
