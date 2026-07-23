@@ -1,7 +1,7 @@
 """
-DiTing2.0 数据集适配器
+DiTing2.0 data
 
-基于 diting.py 修改，适配预处理后的 npy + meta.csv 格式。
+data diting.py data, data npy + meta.csv data. 
 """
 
 from .base import DatasetBase
@@ -19,7 +19,7 @@ __all__ = ["DiTing2"]
 
 @register_dataset
 class DiTing2(DatasetBase):
-    """DiTing2.0 Dataset (预处理后的 npy + meta.csv 格式)"""
+    """Prepared DiTing 2.0 waveform dataset."""
 
     _name = "diting2"
     _channels = ["z", "n", "e"]
@@ -48,27 +48,27 @@ class DiTing2(DatasetBase):
 
     def _load_meta_data(self, filename=None) -> pd.DataFrame:
         """
-        加载元数据 CSV。
+        metadata CSV. 
         
-        CSV 应由 tools/prepare_diting2.py 生成，包含以下列：
+        CSV data tools/prepare_diting2.py data, value: 
         - key, part, ev_id
         - p_pick, s_pick
         - baz, dis
         - evmag, mag_type, st_mag
         - p_motion, p_clarity
         - Z_P_power_snr, N_S_power_snr, E_S_power_snr
-        - _npy_path (波形 npy 路径)
+        - _npy_path (data npy data)
         """
         if filename is None:
-            # 自动查找 meta_*.csv
+            # Open-source note: implementation detail.
             csv_files = [f for f in os.listdir(self._data_dir) if f.startswith('meta_') and f.endswith('.csv')]
             if not csv_files:
-                raise FileNotFoundError(f"未找到 meta_*.csv 文件在 {self._data_dir}")
+                raise FileNotFoundError(f"No meta_*.csv file found in {self._data_dir}")
             filename = csv_files[0]
-            logger.info(f"自动选择元数据文件：{filename}")
+            logger.info(f"Using metadata file: {filename}")
         
         csv_path = os.path.join(self._data_dir, filename)
-        logger.info(f"加载元数据：{csv_path}")
+        logger.info(f"Loading metavalue: {csv_path}")
         
         meta_df = pd.read_csv(
             csv_path,
@@ -97,12 +97,12 @@ class DiTing2(DatasetBase):
             low_memory=False,
         )
 
-        # 清理空格
+        # Open-source note: implementation detail.
         for k in meta_df.columns:
             if meta_df[k].dtype in [object, np.object_, "object", "O"]:
                 meta_df[k] = meta_df[k].astype(str).str.replace(" ", "")
 
-        # 数据划分
+        # Open-source note: implementation detail.
         if self._shuffle:
             meta_df = meta_df.sample(frac=1, replace=False, random_state=self._seed)
 
@@ -121,14 +121,14 @@ class DiTing2(DatasetBase):
             meta_df = meta_df.iloc[r[0] : r[1], :]
             logger.info(f"Data Split: {self._mode}: {r[0]}-{r[1]}")
 
-        # 训练前过滤掉缺失的 npy 文件（避免 DataLoader 中途 FileNotFoundError 导致训练崩溃）
-        # 兼容两类路径：
-        # - 优先使用 `_npy_path`（tools/prepare_diting2.py 生成）
-        # - fallback: waves/{key}_{part}.npy 或 waves/{key}.npy
+        # Open-source note: implementation detail.
+        # Open-source note: implementation detail.
+        # Open-source note: implementation detail.
+        # Open-source note: implementation detail.
         if "_npy_path" in meta_df.columns:
             def _resolve_npy(row) -> str:
                 p = row.get("_npy_path", "")
-                # pandas 可能把缺失值读成 nan（float）或 "nan"(str)
+                # Open-source note: implementation detail.
                 if p is None:
                     p = ""
                 if not isinstance(p, str):
@@ -144,13 +144,13 @@ class DiTing2(DatasetBase):
                 except Exception:
                     part_i = None
 
-                # 常见：waves/{key}_{part}.npy（若 key 本身包含 '_' 也没关系）
+                # Open-source note: implementation detail.
                 if part_i is not None:
                     cand = os.path.join(self._data_dir, "waves", f"{key}_{part_i}.npy")
                     if os.path.exists(cand):
                         return cand
 
-                # 兜底：waves/{key}.npy
+                # Open-source note: implementation detail.
                 return os.path.join(self._data_dir, "waves", f"{key}.npy")
 
             npy_paths = meta_df.apply(_resolve_npy, axis=1)
@@ -165,17 +165,17 @@ class DiTing2(DatasetBase):
 
     def _load_event_data(self, idx: int) -> Tuple[dict, dict]:
         """
-        加载事件数据。
+        data. 
         
-        与原版 diting.py 的主要区别：
-        - 从 npy 文件读取波形，而不是从 HDF5
-        - 其他标签处理逻辑保持一致
+        data diting.py value: 
+        - data npy data, data HDF5
+        - data
         """
         target_event = self._meta_data.iloc[idx]
         key = target_event["key"]
 
         def _load_npy_with_retry(path: str) -> np.ndarray:
-            # 共享盘/NFS 在多进程 DataLoader 下偶发“短暂看不到文件”，做轻量重试避免训练中断
+            # Open-source note: implementation detail.
             last_err = None
             for attempt in range(6):
                 try:
@@ -185,7 +185,7 @@ class DiTing2(DatasetBase):
                     time.sleep([0.2, 0.5, 1.0, 2.0, 4.0, 8.0][attempt])
             raise last_err
 
-        # 从 npy 读取波形（已经是 (3, 8192) 格式）
+        # Open-source note: implementation detail.
         npy_path = target_event.get("_npy_path", None)
         if npy_path is None:
             npy_path = ""
@@ -198,7 +198,7 @@ class DiTing2(DatasetBase):
         if npy_path and os.path.exists(npy_path):
             data = _load_npy_with_retry(npy_path)
         else:
-            # Fallback：从 waves 目录读取（兼容 waves/{key}_{part}.npy 与 waves/{key}.npy）
+            # Open-source note: implementation detail.
             part = target_event.get("part", None)
             try:
                 part_i = int(part) if part is not None and str(part).strip() != "" else None
@@ -219,7 +219,7 @@ class DiTing2(DatasetBase):
                 raise FileNotFoundError(f"Waveform npy not found. Tried: {cand_paths}")
             data = _load_npy_with_retry(found)
 
-        # 提取标签（使用预处理后的 _pmp_bin）
+        # Open-source note: implementation detail.
         (
             ppk, spk,
             mag_type, evmag,
@@ -238,7 +238,7 @@ class DiTing2(DatasetBase):
             target_event
         )
 
-        # 震级处理
+        # Open-source note: implementation detail.
         try:
             if isinstance(evmag, str):
                 evmag = float(evmag)
@@ -251,8 +251,8 @@ class DiTing2(DatasetBase):
         except:
             stmag = 0
 
-        # 极性：优先使用预处理后的 `_pmp_bin`（0/1）
-        # 注意：这里不再“默认填 0”，因为那会掩盖数据问题；Full5 数据应当 100% 有效。
+        # Open-source note: implementation detail.
+        # Open-source note: implementation detail.
         motion = None
         try:
             if pd.notnull(pmp_bin) and pmp_bin != "":
@@ -262,11 +262,11 @@ class DiTing2(DatasetBase):
         except (ValueError, TypeError, AttributeError):
             motion = None
 
-        # 清晰度
+        # Open-source note: implementation detail.
         if pd.notnull(clarity):
             clarity = 0 if clarity.lower() == "i" else 1
 
-        # 方位角
+        # Open-source note: implementation detail.
         if pd.notnull(baz):
             if baz == '':
                 baz = np.nan
@@ -274,7 +274,7 @@ class DiTing2(DatasetBase):
                 baz = float(baz)
                 baz = baz % 360
 
-        # 震级类型转换（已在预处理脚本中完成，这里保持一致）
+        # Open-source note: implementation detail.
         mag_type_lower = str(mag_type).strip().lower()
         if mag_type_lower == "ms":
             evmag = (evmag + 1.08) / 1.13
@@ -285,9 +285,9 @@ class DiTing2(DatasetBase):
         elif mag_type_lower in ["ml", ""]:
             pass
         else:
-            # 不抛出异常：按 ML 处理即可
-            # 注意：该 Dataset 代码可能在 DataLoader worker 进程中运行，
-            # 此处不要调用项目自定义 logger（worker 中可能未初始化 logger，导致异常中断训练）。
+            # Open-source note: implementation detail.
+            # Open-source note: implementation detail.
+            # Open-source note: implementation detail.
             pass
 
         evmag = np.clip(evmag, 0, 8, dtype=np.float32)
@@ -295,8 +295,8 @@ class DiTing2(DatasetBase):
 
         snr = np.array([zpp_snr, nsp_snr, esp_snr])
 
-        # 构造 event 字典（与原版一致）
-        # 注意：pmp 是 onehot 类型，必须是非空列表；若为空应在训练参数侧关闭“纯噪声样本增强”。
+        # Open-source note: implementation detail.
+        # Open-source note: implementation detail.
         event = {
             "data": data,
             "ppks": [ppk] if pd.notnull(ppk) and ppk >= 0 else [],
@@ -316,6 +316,6 @@ class DiTing2(DatasetBase):
 
 @register_dataset
 class DiTing2_light(DiTing2):
-    """DiTing2.0 轻量版（兼容 diting_light 命名）"""
+    """Prepared DiTing 2.0 waveform dataset."""
     _name = "diting2_light"
 

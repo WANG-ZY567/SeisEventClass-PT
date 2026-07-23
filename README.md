@@ -5,7 +5,7 @@
 ### Seismic Event Classification with Pretrained Transformers
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![GitHub Repo](https://img.shields.io/badge/GitHub-SeisEventClass--PT-black.svg)](https://github.com/sky6254/SeisEventClass-PT)
+[![GitHub Repo](https://img.shields.io/badge/GitHub-SeisEventClass--PT-black.svg)](https://github.com/WANG-ZY567/SeisEventClass-PT)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.4%2B-ee4c2c.svg)](https://pytorch.org/)
 
@@ -32,7 +32,7 @@ This repository is organized for reproducible experiments, including EVT6 datase
 
 ## EVT6 Label Definition
 
-The EVT6 task follows the `evtype` labels used in the prepared DiTing 2.0 metadata:
+The EVT6 task follows the `evtype` labels used in the prepared DiTing 2.0 metavalue:
 
 | Class ID | Event Code | Description |
 |---:|---|---|
@@ -47,7 +47,7 @@ The dataset adapter is implemented in `datasets/diting2_evt6.py`.
 
 ## Repository Structure
 
-```text
+```data
 SeisEventClass-PT/
 |-- main.py                         # Main training / evaluation entry
 |-- config.py                       # Model, loss, label, and metric registry
@@ -69,7 +69,7 @@ SeisEventClass-PT/
 Clone this repository and install the required packages in a clean Python environment:
 
 ```bash
-git clone https://github.com/sky6254/SeisEventClass-PT.git
+git clone https://github.com/WANG-ZY567/SeisEventClass-PT.git
 cd SeisEventClass-PT
 ```
 
@@ -98,7 +98,7 @@ python tools/prepare_diting2_evt6.py \
 
 The generated directory is expected to contain metadata files such as:
 
-```text
+```data
 meta_evt6.csv
 meta_evt6_train.csv
 meta_evt6_val.csv
@@ -108,7 +108,7 @@ waves/
 waves_non/
 ```
 
-See `DiTing2.0使用指南.md`, `docs/EVT6_DATASET_REPORT_PAPERALIGN.md`, and `docs/REPRODUCIBILITY.md` for more details.
+See `docs/DATA_ACCESS.md`, `docs/EVT6_DATASET_REPORT_PAPERALIGN.md`, and `docs/REPRODUCIBILITY.md` for more details.
 
 ## GPT-2 / Pretrained Backbone
 
@@ -214,6 +214,12 @@ This repository intentionally does not include:
 
 Please keep datasets under a local data directory and pass the path through `--data`.
 
+
+## Data and Code Availability
+
+The source code is released under the MIT License at this repository. Raw DiTing 2.0 waveforms, generated waveform arrays, pretrained model caches, and trained checkpoints are not redistributed here because of dataset-provider policies and file-size constraints. Users should obtain DiTing 2.0 through the official provider procedures and use the scripts in `tools/` to reproduce the prepared EVT6 metadata and waveform arrays locally.
+
+For external evaluation, the Curated Pacific Northwest AI-ready Seismic Dataset is available from its original repository: https://github.com/niyiyu/PNW-ML.
 ## Acknowledgement
 
 This project is developed based on the SeisMoLLM / SeisT-style seismic modeling codebase, with extensions for DiTing 2.0 EVT6 event classification, dataset construction, and event-level evaluation.
@@ -239,3 +245,5 @@ If this repository is useful for your research, please cite the related SeisMoLL
 ## License
 
 This project is released under the MIT License. See `LICENSE` for details.
+
+

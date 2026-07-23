@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
 """
-Predicted-conditioned picking：按分类器预测的 evt6 类，把同一条 trace 路由到对应 class-specific picker 的预测结果，
-再在全体样本上汇总 P/S picking 指标（Precision/Recall/F1 + MAE 等，口径复用 utils/metrics.py 的相同逻辑）。
+Predicted-conditioned picking: data evt6 data, data trace data class-specific picker data, 
+data P/S picking data(Precision/Recall/F1 + MAE data, data utils/metrics.py data). 
 
-依赖输入：
-1) route_csv: 分类器输出（waveform-level）test_results_*.csv，至少包含：
-   - trace_uid（或 key+part 可拼）
-   - pred_evt6（或 prob_evt6_*）
-2) per-class picker 的 test_results_*.csv（dpk 测试输出），至少包含：
-   - trace_uid（或 key+part）
+value: 
+1) route_csv: data(waveform-level)test_results_*.csv, value: 
+   - trace_uid(data key+part data)
+   - pred_evt6(data prob_evt6_*)
+2) per-class picker data test_results_*.csv(dpk data), value: 
+   - trace_uid(data key+part)
    - tgt_ppk, pred_ppk
    - tgt_spk, pred_spk
 
-本脚本默认使用 `trace_uid` 做 join（xapp meta 已包含）。
+data `trace_uid` data join(xapp meta data). 
 """
 
 from __future__ import annotations
@@ -52,9 +52,9 @@ def _compute_pick_metrics(
     tgt: np.ndarray, pred: np.ndarray, num_samples: int, sampling_rate: int, time_threshold_s: float
 ) -> Dict[str, float]:
     """
-    对齐 utils/metrics.py 中 ppk/spk 的口径：
-    - pred/target 在 [0,num_samples) 认为“有相”
-    - tp: pred & target 都有相，且 |err| <= t_thres
+    data utils/metrics.py data ppk/spk value: 
+    - pred/target data [0,num_samples) data"data"
+    - tp: pred & target data, data |err| <= t_thres
     """
     t_thres = int(float(time_threshold_s) * float(sampling_rate))
 
@@ -74,7 +74,7 @@ def _compute_pick_metrics(
     recall = _safe_div(tp, possp)
     f1 = _safe_div(2 * precision * recall, precision + recall) if (precision + recall) > 0 else 0.0
 
-    # MAE：只在 tp_bin 上计入（与 Metrics 里 mask 一致）
+    # Open-source note: implementation detail.
     mae = float(ae[tp_bin].mean()) if tp_bin.any() else 0.0
     return {"precision": precision, "recall": recall, "f1": f1, "mae": mae, "tp": tp, "predp": predp, "possp": possp}
 
@@ -89,11 +89,11 @@ def _load_results_csv(path: str) -> pd.DataFrame:
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--route_csv", required=True, help="分类器 test_results_*.csv（含 trace_uid + pred_evt6）")
+    ap.add_argument("--route_csv", required=True, help="data test_results_*.csv(data trace_uid + pred_evt6)")
     ap.add_argument(
         "--picker_csv_by_class",
         required=True,
-        help="每类 picker 的 test_results csv 映射，格式：0=/path/a.csv,1=/path/b.csv,...",
+        help="data picker data test_results csv data, value: 0=/path/a.csv,1=/path/b.csv,...",
     )
     ap.add_argument("--out_md", required=True)
     ap.add_argument("--num_samples", type=int, default=8192)
@@ -103,9 +103,9 @@ def main() -> None:
 
     route_df = _load_results_csv(args.route_csv)
     if "trace_uid" not in route_df.columns:
-        raise KeyError("route_csv 缺少列：trace_uid")
+        raise KeyError("route_csv value: trace_uid")
     if "pred_evt6" not in route_df.columns:
-        raise KeyError("route_csv 缺少列：pred_evt6")
+        raise KeyError("route_csv value: pred_evt6")
     keep_cols = ["trace_uid", "pred_evt6"]
     # If available, use the true P/S targets from route_csv directly. This is important for predicted-routing:
     # even if a trace is misrouted, the global targets should still come from ground truth.
@@ -126,18 +126,18 @@ def main() -> None:
         mapping[int(k.strip())] = os.path.abspath(v.strip())
     for cid in range(NUM_CLASSES):
         if cid not in mapping:
-            raise ValueError(f"picker_csv_by_class 缺少类 {cid} 的 csv 映射")
+            raise ValueError(f"picker_csv_by_class data {cid} data csv data")
 
     # load picker outputs and build a union table of per-trace predictions per class
     picker_df_by_class: Dict[int, pd.DataFrame] = {}
     for cid, p in mapping.items():
         df = _load_results_csv(p)
         if "trace_uid" not in df.columns:
-            raise KeyError(f"class {cid} picker csv 缺少列：trace_uid: {p}")
+            raise KeyError(f"class {cid} picker csv value: trace_uid: {p}")
         need = ["tgt_ppk", "pred_ppk", "tgt_spk", "pred_spk"]
         miss = [c for c in need if c not in df.columns]
         if miss:
-            raise KeyError(f"class {cid} picker csv 缺少列：{miss}: {p}")
+            raise KeyError(f"class {cid} picker csv value: {miss}: {p}")
         df = df[["trace_uid"] + need].copy()
         # ensure int
         for c in need:
@@ -212,7 +212,7 @@ def main() -> None:
     out_md = os.path.abspath(args.out_md)
     os.makedirs(os.path.dirname(out_md), exist_ok=True)
     with open(out_md, "w", encoding="utf-8") as f:
-        f.write("# Predicted-conditioned phase picking 汇总报告（route by EVT6 classifier）\n\n")
+        f.write("# Picking Routed Evaluation Report\n\n")
         f.write(f"- route_csv: `{os.path.abspath(args.route_csv)}`\n")
         f.write(f"- num_samples: {int(args.num_samples)}\n")
         f.write(f"- sampling_rate: {int(args.sampling_rate)}\n")

@@ -164,9 +164,9 @@ def main():
         f.write(f"- scheme: `{args.scheme}`\n\n")
 
         f.write("## How to read\n\n")
-        f.write("- `f1_range` 越大：该类在不同震级/距离桶之间波动越大（更“敏感”）。\n")
-        f.write("- `f1_last_minus_first`：最后一个桶相对第一个桶的变化方向（正/负）。\n")
-        f.write("- `corr_binid_f1`：F1 随桶序号的线性趋势（仅作趋势提示，不作严格统计推断）。\n\n")
+        f.write("- `f1_range`: the range between the best and worst bin-level F1 scores. \n")
+        f.write("- `f1_last_minus_first`: the F1 difference between the last and first bins. \n")
+        f.write("- `corr_binid_f1`: correlation between bin index and F1 score. \n\n")
 
         f.write("## Bin labels\n\n")
         for bid in sorted(bin_labels.keys()):
@@ -177,8 +177,8 @@ def main():
         f.write(f"See `{os.path.basename(out_csv)}`.\n\n")
 
         f.write("## Paper-facing conservative notes template\n\n")
-        f.write("- 报告每类在各桶的 support；对 support 很小的桶谨慎解释。\n")
-        f.write("- 优先用 `f1_range` + per-bin 曲线描述“敏感程度”，避免过度因果化。\n")
+        f.write("- Interpret bins with limited support cautiously. \n")
+        f.write("- Use `f1_range` and per-bin F1 scores to describe class sensitivity. \n")
 
     print("[OK] wrote:")
     print(" -", out_csv)

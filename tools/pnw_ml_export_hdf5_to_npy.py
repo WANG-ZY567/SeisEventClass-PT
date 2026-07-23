@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 """
-从 PNW HDF5 导出与 DiTing 训练一致的 .npy 波形（需 h5py）。
+data PNW HDF5 data DiTing data .npy data(data h5py). 
 
-⚠️ HDF5 内路径与 trace_name 的对应关系因数据集版本而异。
-请先运行：python tools/pnw_ml_inspect_hdf5.py <file.h5>
+[WARN] HDF5 data trace_name data. 
+value: python tools/pnw_ml_inspect_hdf5.py <file.h5>
 
-trace_name 支持：
-  - **PNW/ComCat**：`bucket4$0,:3,:15001` → 读取 `f['data/bucket4'][0, :3, :15001]`（bucket 名可带或不带 `data/` 前缀）
-  - **其它**：整段作为 dataset 路径；或 `waveforms/` 下；或将 `$ , :` 替换为 `_` 后再试（旧逻辑）
+trace_name value: 
+  - **PNW/ComCat**: `bucket4$0,:3,:15001` -> data `f['data/bucket4'][0, :3, :15001]`(bucket data `data/` data)
+  - **data**: dataset data; data `waveforms/` data; data `$ , :` data `_` data(data)
 
-导出形状：尽量变为 (3, L)；若 L != in_samples，则 **中心裁剪或填充** 到 in_samples（默认 8192）。
+value: data (3, L); data L != in_samples, data **data** data in_samples(data 8192). 
 
-**不运行实验时**你可只检查本文件参数；首次导出建议先用 --max_rows 10 试跑。
+**data**data; data --max_rows 10 data. 
 """
 from __future__ import annotations
 
@@ -26,8 +26,8 @@ def sanitize_key(s: str) -> str:
 
 def parse_pnw_trace_index(idx_part: str):
     """
-    解析 metadata 中形如 `0,:3,:15001` 的索引串（逗号分三段：轴0 整数、轴1/2 可为 :k 或 :）。
-    返回 (int, slice|int, slice|int)，供 h5 dataset [...] 使用。
+    data metadata `0,:3,:15001` data(value: text0 data, text1/2 data :k data :). 
+    data (int, slice|int, slice|int), data h5 dataset [...] data. 
     """
     parts = [p.strip() for p in idx_part.split(",")]
     if len(parts) != 3:
@@ -49,9 +49,9 @@ def parse_pnw_trace_index(idx_part: str):
 
 def read_waveform_from_h5(h5, trace_name: str):
     """
-    支持两种 trace_name：
-    1) PNW/ComCat：`bucket4$0,:3,:15001` → 数据集路径 `data/bucket4`，再按索引切片。
-    2) 其它：整段作为 dataset 路径（或 waveforms/ 下、sanitize 后），与旧逻辑一致。
+    data trace_name: 
+    1) PNW/ComCat: `bucket4$0,:3,:15001` -> data `data/bucket4`, data. 
+    2) value: dataset data(data waveforms/ data, sanitize data), data. 
     """
     tn = trace_name.strip()
     if "$" in tn:
@@ -102,15 +102,15 @@ def main() -> None:
         import h5py  # type: ignore
         import numpy as np
     except ImportError:
-        print("需要: pip install h5py numpy")
+        print("value: pip install h5py numpy")
         raise SystemExit(1)
 
     ap = argparse.ArgumentParser()
     ap.add_argument("--hdf5", type=Path, required=True)
-    ap.add_argument("--meta_csv", type=Path, required=True, help="含 trace_name 与 _npy_path")
-    ap.add_argument("--data_dir", type=Path, required=True, help="meta 中 _npy_path 的根目录")
+    ap.add_argument("--meta_csv", type=Path, required=True, help="data trace_name data _npy_path")
+    ap.add_argument("--data_dir", type=Path, required=True, help="meta data _npy_path data")
     ap.add_argument("--in_samples", type=int, default=8192)
-    ap.add_argument("--max_rows", type=int, default=0, help="0 表示全部")
+    ap.add_argument("--max_rows", type=int, default=0, help="0 data")
     args = ap.parse_args()
 
     import csv

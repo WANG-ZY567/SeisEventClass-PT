@@ -1,12 +1,12 @@
 """
-从 test_results_*.csv 生成 evt3（三分类）结果报告（论文口径）：
+data test_results_*.csv data evt3(data)data(data): 
 - Overall Accuracy / Macro-F1
 - per-class Precision/Recall/F1
 - confusion matrix
 
-期望输入：
+value: 
   reports/<run>/test_results_*_test.csv
-其中至少包含列：pred_evt3, tgt_evt3（整数类别 id）
+value: pred_evt3, tgt_evt3(data id)
 """
 
 import argparse
@@ -38,7 +38,7 @@ def _per_class_prf(cm: np.ndarray):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--run_dir", required=True, help="训练 run 目录（包含 test_results_*.csv）")
+    ap.add_argument("--run_dir", required=True, help="data run data(data test_results_*.csv)")
     args = ap.parse_args()
 
     run_dir = args.run_dir
@@ -48,13 +48,13 @@ def main():
     # find test_results csv
     cands = [f for f in os.listdir(run_dir) if f.startswith("test_results_") and f.endswith(".csv")]
     if not cands:
-        raise FileNotFoundError(f"未在 {run_dir} 找到 test_results_*.csv")
+        raise FileNotFoundError(f"data {run_dir} data test_results_*.csv")
     cands.sort()
     csv_path = os.path.join(run_dir, cands[-1])
 
     df = pd.read_csv(csv_path)
     if "tgt_evt3" not in df.columns or "pred_evt3" not in df.columns:
-        raise KeyError(f"CSV 缺少列：需要 tgt_evt3/pred_evt3，实际列={list(df.columns)}")
+        raise KeyError(f"CSV value: data tgt_evt3/pred_evt3, data={list(df.columns)}")
 
     y_true = df["tgt_evt3"].astype(int).to_numpy()
     y_pred = df["pred_evt3"].astype(int).to_numpy()
@@ -77,16 +77,16 @@ def main():
     cm_df.to_csv(cm_csv)
 
     lines = []
-    lines.append("# EVT3 分类测试报告（Accuracy / Macro-F1 / Confusion Matrix）\n")
-    lines.append(f"- 输入结果：`{csv_path}`\n")
-    lines.append(f"- 输出报告：`{out_md}`\n")
-    lines.append(f"- 混淆矩阵 CSV：`{cm_csv}`\n\n")
+    lines.append("# EVT3 Test Report\n\n")
+    lines.append(f"- value: `{csv_path}`\n")
+    lines.append(f"- value: `{out_md}`\n")
+    lines.append(f"- metadata CSV: `{cm_csv}`\n\n")
     lines.append("---\n\n")
-    lines.append("## 1. Overall 指标\n\n")
-    lines.append(f"- **Accuracy**：{acc:.4f}\n")
-    lines.append(f"- **Macro-F1**：{macro_f1:.4f}\n\n")
+    lines.append("## Overall metrics\n\n")
+    lines.append(f"- **Accuracy**: {acc:.4f}\n")
+    lines.append(f"- **Macro-F1**: {macro_f1:.4f}\n\n")
     lines.append("---\n\n")
-    lines.append("## 2. 各类别指标（论文常见表格口径）\n\n")
+    lines.append("## Per-class metrics\n\n")
     lines.append("| class | support | precision | recall | f1 |\n")
     lines.append("|---|---:|---:|---:|---:|\n")
     for i in range(3):
@@ -94,7 +94,7 @@ def main():
         p, r, f1, sup = per[i]
         lines.append(f"| {name} | {sup} | {p:.4f} | {r:.4f} | {f1:.4f} |\n")
     lines.append("\n---\n\n")
-    lines.append("## 3. Confusion Matrix（true × pred）\n\n")
+    lines.append("## 3. Confusion Matrix(true x pred)\n\n")
     lines.append("| true\\pred | eq | ep | co |\n")
     lines.append("|---|---|---|---|\n")
     for i in range(3):
@@ -103,8 +103,8 @@ def main():
     with open(out_md, "w", encoding="utf-8") as f:
         f.writelines(lines)
 
-    print(f"[OK] 写出：{out_md}")
-    print(f"[OK] 写出：{cm_csv}")
+    print(f"[OK] value: {out_md}")
+    print(f"[OK] value: {cm_csv}")
 
 
 if __name__ == "__main__":

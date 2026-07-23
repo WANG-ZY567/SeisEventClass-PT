@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """
-从 test_results_*.csv 生成 evt6 分类结果报告（论文口径）：
-- Overall Accuracy（整体准确率）
-- 每类别 Precision / Recall / F1
+data test_results_*.csv data evt6 data(data): 
+- Overall Accuracy(data)
+- data Precision / Recall / F1
 - Macro-F1
-- 混淆矩阵（csv + Markdown 表格）
+- data(csv + Markdown data)
 
-输入文件通常由 `training/validate.py` 在 `--save_test_results` 时生成：
+data `training/validate.py` data `--save_test_results` value: 
   reports/<run>/test_results_diting2_evt6_test.csv
-其中至少包含列：pred_evt6, tgt_evt6（整数类别 id）
+value: pred_evt6, tgt_evt6(data id)
 """
 
 import argparse
@@ -21,7 +21,7 @@ import numpy as np
 import pandas as pd
 
 
-# 与 evt6 定义保持一致：0 eq,1 ep,2 ss(论文里常写 co),3 sp,4 se,5 ot
+# Open-source note: implementation detail.
 ID2NAME: Dict[int, str] = {0: "eq", 1: "ep", 2: "co", 3: "sp", 4: "se", 5: "ot"}
 NAME2ID: Dict[str, int] = {v: k for k, v in ID2NAME.items()}
 
@@ -37,7 +37,7 @@ def _find_default_results_csv(run_dir: str) -> str:
         reverse=True,
     )
     if not cands:
-        raise FileNotFoundError(f"在 run_dir 未找到 test_results_*.csv：{run_dir}")
+        raise FileNotFoundError(f"data run_dir data test_results_*.csv: {run_dir}")
     return cands[0]
 
 
@@ -90,14 +90,14 @@ def _cm_to_markdown(cm: np.ndarray, names: List[str]) -> str:
 
 def _cm_to_markdown_rect(cm: np.ndarray, true_names: List[str], pred_names: List[str]) -> str:
     """
-    支持非方阵 confusion matrix：
-      - 行：true_names（长度应等于 cm.shape[0]）
-      - 列：pred_names（长度应等于 cm.shape[1]）
+    data confusion matrix: 
+      - value: true_names(data cm.shape[0])
+      - value: pred_names(data cm.shape[1])
     """
     if cm.shape[0] != len(true_names):
-        raise ValueError(f"cm 行数与 true_names 不一致：cm={cm.shape}, true_names={len(true_names)}")
+        raise ValueError(f"cm data true_names value: cm={cm.shape}, true_names={len(true_names)}")
     if cm.shape[1] != len(pred_names):
-        raise ValueError(f"cm 列数与 pred_names 不一致：cm={cm.shape}, pred_names={len(pred_names)}")
+        raise ValueError(f"cm data pred_names value: cm={cm.shape}, pred_names={len(pred_names)}")
     header = "| true\\pred | " + " | ".join(pred_names) + " |\n"
     sep = "|---" + "|---" * (len(pred_names) + 1) + "|\n"
     rows = []
@@ -108,9 +108,9 @@ def _cm_to_markdown_rect(cm: np.ndarray, true_names: List[str], pred_names: List
 
 def _parse_class_list(s: str) -> List[int]:
     """
-    支持输入：
-      - 逗号分隔的 class name：eq,ep,co,sp,se,ot
-      - 或数字 id：0,1,2
+    value: 
+      - data class name: eq,ep,co,sp,se,ot
+      - data id: 0,1,2
     """
     s = (s or "").strip()
     if not s:
@@ -122,9 +122,9 @@ def _parse_class_list(s: str) -> List[int]:
             out.append(int(p))
         else:
             if p not in NAME2ID:
-                raise ValueError(f"未知类别名：{p}（支持：{sorted(NAME2ID.keys())} 或 0-5）")
+                raise ValueError(f"value: {p}(value: {sorted(NAME2ID.keys())} data 0-5)")
             out.append(NAME2ID[p])
-    # 去重并保持稳定顺序
+    # Open-source note: implementation detail.
     seen: Set[int] = set()
     uniq: List[int] = []
     for x in out:
@@ -138,10 +138,10 @@ def _compute_metrics_excluding_true(
     y_true: np.ndarray, y_pred: np.ndarray, num_classes: int, exclude_true_ids: List[int]
 ) -> Tuple[int, float, np.ndarray, List[dict], float, List[int]]:
     """
-    在“剔除某些 true label”的子集上计算指标：
-      - 过滤掉 y_true 属于 exclude_true_ids 的样本
-      - confusion matrix 仍保留 pred 侧的全部 num_classes 列（方便看“被错分到 se”的情况）
-      - per-class / macro-f1 只对保留的 true 类做平均（即 5-way macro-f1）
+    data"data true label"value: 
+      - data y_true data exclude_true_ids data
+      - confusion matrix data pred data num_classes data(data"data se"data)
+      - per-class / macro-f1 data true data(data 5-way macro-f1)
 
     Returns:
       kept_total, acc, cm_kept_rows (K x num_classes), per_class_rows(K), macro_f1, kept_true_ids
@@ -153,7 +153,7 @@ def _compute_metrics_excluding_true(
     kept_total = int(yt.shape[0])
     kept_true_ids = [i for i in range(num_classes) if i not in exclude_set]
 
-    # accuracy 直接在过滤后的样本上算
+    # Open-source note: implementation detail.
     acc = float(np.mean((yt == yp).astype(np.float64))) if kept_total > 0 else 0.0
 
     # full cm on filtered, then keep only selected true rows
@@ -167,7 +167,7 @@ def _compute_metrics_excluding_true(
     f1s: List[float] = []
     for i in kept_true_ids:
         tp = int(cm_full[i, i])
-        fp = int(cm_full[:, i].sum() - tp)  # 过滤后的子集上，其他 true 类预测成 i 的数量
+        fp = int(cm_full[:, i].sum() - tp)  # Open-source note: implementation detail.
         fn = int(cm_full[i, :].sum() - tp)
         prec = _safe_div(tp, tp + fp)
         rec = _safe_div(tp, tp + fn)
@@ -190,13 +190,13 @@ def _compute_metrics_excluding_true(
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--run_dir", default="", help="reports/<timestamp>_<model>_<dataset> 目录；留空则必须提供 --results_csv")
-    ap.add_argument("--results_csv", default="", help="test_results_*.csv 路径（优先于 --run_dir 自动探测）")
-    ap.add_argument("--out_md", default="", help="输出 Markdown 路径；默认写入 run_dir/EVT6_TEST_REPORT.md")
+    ap.add_argument("--run_dir", default="", help="reports/<timestamp>_<model>_<dataset> data; data --results_csv")
+    ap.add_argument("--results_csv", default="", help="test_results_*.csv data(data --run_dir data)")
+    ap.add_argument("--out_md", default="", help="data Markdown data; data run_dir/EVT6_TEST_REPORT.md")
     ap.add_argument(
         "--exclude_true_classes",
         default="",
-        help="剔除某些 true label 后再额外计算一套参考指标（逗号分隔，支持名称 eq,ep,co,sp,se,ot 或 id 0-5），例如：se",
+        help="data true label data(data, data eq,ep,co,sp,se,ot data id 0-5), value: se",
     )
     args = ap.parse_args()
 
@@ -211,12 +211,12 @@ def main():
             run_dir = os.path.dirname(csv_path)
     else:
         if not run_dir:
-            raise ValueError("请提供 --results_csv 或 --run_dir")
+            raise ValueError("data --results_csv data --run_dir")
         csv_path = _find_default_results_csv(run_dir)
 
     df = pd.read_csv(csv_path, low_memory=False)
     if "tgt_evt6" not in df.columns or "pred_evt6" not in df.columns:
-        raise KeyError(f"CSV 缺少列：需要 tgt_evt6/pred_evt6，实际列={list(df.columns)}")
+        raise KeyError(f"CSV value: data tgt_evt6/pred_evt6, data={list(df.columns)}")
 
     y_true = df["tgt_evt6"].astype(int).to_numpy()
     y_pred = df["pred_evt6"].astype(int).to_numpy()
@@ -230,24 +230,24 @@ def main():
     out_md = os.path.abspath(args.out_md) if args.out_md else os.path.join(run_dir, "EVT6_TEST_REPORT.md")
     os.makedirs(os.path.dirname(out_md), exist_ok=True)
 
-    # 同时输出 confusion matrix csv，方便你后续画图/比对论文
+    # Open-source note: implementation detail.
     cm_csv = os.path.join(os.path.dirname(out_md), "confusion_matrix_evt6.csv")
     pd.DataFrame(cm, index=[f"true_{n}" for n in names], columns=[f"pred_{n}" for n in names]).to_csv(cm_csv)
 
     lines = []
-    lines.append("# EVT6 分类测试报告（Accuracy / Macro-F1 / Confusion Matrix）\n\n")
-    lines.append(f"- 生成时间：{now}\n")
-    lines.append(f"- 输入结果：`{csv_path}`\n")
-    lines.append(f"- 输出报告：`{out_md}`\n")
-    lines.append(f"- 混淆矩阵 CSV：`{cm_csv}`\n")
+    lines.append("# EVT6 Test Report\n\n")
+    lines.append(f"- value: {now}\n")
+    lines.append(f"- value: `{csv_path}`\n")
+    lines.append(f"- value: `{out_md}`\n")
+    lines.append(f"- metadata CSV: `{cm_csv}`\n")
     lines.append("\n---\n\n")
 
-    lines.append("## 1. Overall 指标\n\n")
-    lines.append(f"- **Accuracy**：{acc:.4f}\n")
-    lines.append(f"- **Macro-F1**：{macro_f1:.4f}\n")
+    lines.append("## Overall metrics\n\n")
+    lines.append(f"- **Accuracy**: {acc:.4f}\n")
+    lines.append(f"- **Macro-F1**: {macro_f1:.4f}\n")
     lines.append("\n---\n\n")
 
-    lines.append("## 2. 各类别指标（论文常见表格口径）\n\n")
+    lines.append("## Per-class metrics\n\n")
     lines.append("| class | support | precision | recall | f1 |\n")
     lines.append("|---|---:|---:|---:|---:|\n")
     for r in per_class:
@@ -256,7 +256,7 @@ def main():
         )
     lines.append("\n---\n\n")
 
-    lines.append("## 3. Confusion Matrix（true × pred）\n\n")
+    lines.append("## 3. Confusion Matrix(true x pred)\n\n")
     lines.append(_cm_to_markdown(cm, names))
 
     if exclude_true_ids:
@@ -272,15 +272,15 @@ def main():
         ).to_csv(cm_csv_ex)
 
         lines.append("\n---\n\n")
-        lines.append("## 4. 参考：剔除部分 true 类后的指标（仅用于口径对比）\n\n")
-        lines.append(f"- 剔除 true 类：`{', '.join(exclude_true_names)}`\n")
-        lines.append(f"- 保留样本数：{kept_total}\n")
-        lines.append(f"- **Accuracy（exclude true={','.join(exclude_true_names)}）**：{acc_ex:.4f}\n")
-        lines.append(f"- **Macro-F1（exclude true={','.join(exclude_true_names)}）**：{macro_f1_ex:.4f}\n")
-        lines.append(f"- 混淆矩阵 CSV（仅保留 true 行，pred 列仍为 6 类）：`{cm_csv_ex}`\n")
+        lines.append("## Event-level metrics\n\n")
+        lines.append(f"- data true value: `{', '.join(exclude_true_names)}`\n")
+        lines.append(f"- value: {kept_total}\n")
+        lines.append(f"- **Accuracy(exclude true={','.join(exclude_true_names)})**: {acc_ex:.4f}\n")
+        lines.append(f"- **Macro-F1(exclude true={','.join(exclude_true_names)})**: {macro_f1_ex:.4f}\n")
+        lines.append(f"- metadata CSV(data true data, pred data 6 data): `{cm_csv_ex}`\n")
         lines.append("\n\n")
 
-        lines.append("### 4.1 各类别指标（仅对保留的 true 类统计）\n\n")
+        lines.append("## Confusion matrix\n\n")
         lines.append("| class | support | precision | recall | f1 |\n")
         lines.append("|---|---:|---:|---:|---:|\n")
         for r in per_class_ex:
@@ -289,7 +289,7 @@ def main():
             )
         lines.append("\n\n")
 
-        lines.append("### 4.2 Confusion Matrix（true×pred；true 为保留类，pred 仍为 6 类）\n\n")
+        lines.append("## Error examples\n\n")
         lines.append(_cm_to_markdown_rect(cm_kept, kept_true_names, names))
 
     with open(out_md, "w", encoding="utf-8") as f:

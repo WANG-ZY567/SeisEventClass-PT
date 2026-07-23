@@ -96,7 +96,7 @@ class Evt6WaveformToSpecStem(nn.Module):
             else:
                 x = x[..., : self.in_samples]
 
-        # per-trace max-norm (Z/N/E) before STFT — matches common EVT6 preprocessing
+        # per-trace max-norm (Z/N/E) before STFT - matches common EVT6 preprocessing
         denom = x.abs().amax(dim=-1, keepdim=True).clamp_min(1e-6)
         x = x / denom
 

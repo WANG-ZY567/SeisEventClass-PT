@@ -1,19 +1,19 @@
 #!/usr/bin/env python3
 """
-ComCat：按震源经纬度做 region-disjoint 划分，生成 event 级与 trace 级 manifest CSV。
+ComCat: data region-disjoint data, data event data trace data manifest CSV. 
 
-默认二分类：earthquake=0, explosion=1；仅保留这两种 source_type。
+value: earthquake=0, explosion=1; data source_type. 
 
-区域规则（可调）：
-  - 用 source_longitude_deg 与阈值比较，将事件分为 west / east 两区。
+data(data): 
+  - data source_longitude_deg data, data west / east data. 
   - source_region=west: lon < lon_threshold
   - source_region=east: lon >= lon_threshold
 
-划分：
-  - source 区：train + val（event 不重叠）
-  - target 区：test（zero-shot 评测）；few-shot 时从 target train pool 再抽比例
+value: 
+  - source value: train + val(event data)
+  - target value: test(zero-shot data); few-shot data target train pool data
 
-输出目录示例：reports/pnw_ml/splits/comcat_binary_lon-121.5/
+value: reports/pnw_ml/splits/comcat_binary_lon-121.5/
 """
 from __future__ import annotations
 
@@ -26,7 +26,7 @@ from pathlib import Path
 
 
 def load_unique_events_comcat(path: Path) -> dict[str, dict]:
-    """每个 event_id 保留第一次出现行的震源信息与类型。"""
+    """Open-source note: implementation detail."""
     out: dict[str, dict] = {}
     with path.open(newline="") as f:
         r = csv.DictReader(f)
@@ -74,7 +74,7 @@ def split_events(
     n_val = int(round(n * val_ratio))
     n_train = n - n_test - n_val
     if n_train <= 0:
-        raise ValueError("train 为空，请减小 val/test 比例或检查数据量")
+        raise ValueError("train data, data val/test data")
     test_set = set(ids[:n_test])
     val_set = set(ids[n_test : n_test + n_val])
     train_set = set(ids[n_test + n_val :])
@@ -128,7 +128,7 @@ def build_trace_manifest(
                 }
             )
             n += 1
-    # 保留原 CSV 中其它列可选扩展：此处最小集
+    # Open-source note: implementation detail.
     write_event_csv(out_csv, rows)
     return n
 
@@ -145,17 +145,17 @@ def main() -> None:
         "--region_mode",
         choices=["lon_split", "nw_quadrant"],
         default="lon_split",
-        help="lon_split: west/east 由经度阈值划分；nw_quadrant: NW/NE/SW/SE 四象限（需另选 source/target 象限）",
+        help="lon_split: west/east data; nw_quadrant: NW/NE/SW/SE data(data source/target data)",
     )
     ap.add_argument(
         "--source_region",
         default="west",
-        help="lon_split 下为 west 或 east；nw_quadrant 下为 NW/NE/SW/SE",
+        help="lon_split data west data east; nw_quadrant data NW/NE/SW/SE",
     )
     ap.add_argument(
         "--target_region",
         default="east",
-        help="lon_split 下为 east 或 west",
+        help="lon_split data east data west",
     )
     ap.add_argument("--val_ratio", type=float, default=0.1)
     ap.add_argument("--test_ratio", type=float, default=0.1)
@@ -164,7 +164,7 @@ def main() -> None:
         "--out_dir",
         type=Path,
         default=None,
-        help="默认 reports/pnw_ml/splits/comcat_binary_<mode>_lon<threshold>/",
+        help="data reports/pnw_ml/splits/comcat_binary_<mode>_lon<threshold>/",
     )
     args = ap.parse_args()
 
@@ -187,11 +187,11 @@ def main() -> None:
     if args.region_mode == "lon_split":
         src_name, tgt_name = args.source_region, args.target_region
         if {src_name, tgt_name} != {"west", "east"}:
-            raise SystemExit("lon_split 下 source_region/target_region 应为 west 与 east 的组合")
+            raise SystemExit("lon_split data source_region/target_region data west data east data")
         source_events = [e for e, r in region_of.items() if r == src_name]
         target_events = [e for e, r in region_of.items() if r == tgt_name]
     else:
-        # 四象限：source 与 target 为两个不同象限
+        # Open-source note: implementation detail.
         src_name, tgt_name = args.source_region, args.target_region
         source_events = [e for e, r in region_of.items() if r == src_name]
         target_events = [e for e, r in region_of.items() if r == tgt_name]
@@ -206,7 +206,7 @@ def main() -> None:
     tr_train, tr_val, tr_test = split_events(
         source_events, args.val_ratio, args.test_ratio, args.seed
     )
-    # target：整体作为 target pool；test 用于 zero-shot，few-shot 从 target 再划分
+    # Open-source note: implementation detail.
     ta_train, ta_val, ta_test = split_events(
         target_events, args.val_ratio, args.test_ratio, args.seed + 1
     )
@@ -251,7 +251,7 @@ def main() -> None:
         json.dumps(summary, indent=2, ensure_ascii=False) + "\n"
     )
 
-    # 保存 event 列表
+    # Open-source note: implementation detail.
     def rows_for(split_name: str, eids: set[str]) -> list[dict]:
         out = []
         for eid in sorted(eids):
@@ -294,10 +294,10 @@ def main() -> None:
         rows_for("target_test", ta_test),
     )
 
-    # trace 级 manifest（含 split 标签，供 DataLoader 使用）
-    # zero-shot：仅用 source_train+val 训练，target_test 测；target_train_pool 可供 few-shot 抽样
+    # Open-source note: implementation detail.
+    # Open-source note: implementation detail.
 
-    # 写 event_split 全表
+    # Open-source note: implementation detail.
     all_rows = []
     for eid, v in sorted(binary.items()):
         all_rows.append(
@@ -321,10 +321,10 @@ def main() -> None:
         trace_out,
     )
 
-    print("输出目录:", out_dir)
+    print("value:", out_dir)
     print(json.dumps(summary, indent=2, ensure_ascii=False))
-    print("trace 行数(过滤二分类后):", n_tr)
-    print("已写:", trace_out)
+    print("trace data(data):", n_tr)
+    print("value:", trace_out)
 
 
 if __name__ == "__main__":

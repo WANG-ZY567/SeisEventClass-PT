@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-从 target_train_pool 的 event 列表中按比例随机抽取 few-shot 微调集（event 级不重复）。
-输出：fewshot_events.csv（event_id 列表），可与全量 traces 表 join。
+data target_train_pool data event data few-shot data(event data). 
+value: fewshot_events.csv(event_id data), data traces data join. 
 """
 from __future__ import annotations
 

@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-从 test_results CSV（含 comcat_event_id, tgt_evt6, pred_evt6）生成事件级二分类指标。
+data test_results CSV(data comcat_event_id, tgt_evt6, pred_evt6)data. 
 
-规则：
-  - 每个 event：真值 = mode(tgt_evt6)；预测 = mode(pred_evt6)
-  - **子集口径**：仅 mode(pred)∈{0,1} 的事件计入 event_binary_accuracy_on_eq_ep_predictions
-  - **全事件严格**：strict_event_binary_accuracy_all_events = 正确事件数 / n_events
+value: 
+  - data event: data = mode(tgt_evt6); data = mode(pred_evt6)
+  - **data**: data mode(pred)in{0,1} data event_binary_accuracy_on_eq_ep_predictions
+  - **data**: strict_event_binary_accuracy_all_events = data / n_events
 
-输出 JSON（保留原扁平字段名以兼容旧文档）。
+data JSON(data). 
 """
 from __future__ import annotations
 
@@ -76,11 +76,11 @@ def main() -> None:
         "event_binary_accuracy_on_eq_ep_predictions": acc_subset,
         "n_events_pred_resolved_eq_ep": len(pairs),
         "n_events_pred_other_class": other_ev,
-        "note": "pred_evt6 mode not in {0,1} counted as other at event level（子集准确率分母不含 other）。",
+        "note": "pred_evt6 mode not in {0,1} counted as other at event level(data other). ",
         "strict_event_binary_accuracy_all_events": strict_acc,
         "strict_per_class_f1_eq0_expl1": {"eq_f1": f1_eq_s, "ep_f1": f1_ep_s},
         "strict_macro_f1_binary": macro_f1_s,
-        "strict_note": "全事件分母 n_events；mode(pred) 必须等于 mode(tgt)。",
+        "strict_note": "data n_events; mode(pred) data mode(tgt). ",
     }
     args.out_json.parent.mkdir(parents=True, exist_ok=True)
     args.out_json.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n")

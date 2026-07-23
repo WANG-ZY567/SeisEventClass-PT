@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-波形级预测结果 -> 事件级聚合（多数票 / 概率平均，若提供 prob 列）。
+data -> data(data / data, data prob data). 
 
-输入 CSV 至少包含列：event_id, y_true, y_pred
-可选列：y_prob_class1（二分类正类概率）或 prob_0..prob_K（多类）
+metadata CSV value: event_id, y_true, y_pred
+value: y_prob_class1(data)data prob_0..prob_K(data)
 
-输出：事件级 Accuracy / Macro-F1；可选 per-class F1（sklearn 可选）。
-无 sklearn 时用宏平均近似：逐类 P/R/F1 由混淆矩阵手算。
+value: data Accuracy / Macro-F1; data per-class F1(sklearn data). 
+data sklearn value: data P/R/F1 data. 
 """
 from __future__ import annotations
 
@@ -30,7 +30,7 @@ def macro_f1_from_confusion(cm: dict[tuple[int, int], int], n_class: int) -> flo
 
 
 def majority_vote(rows: list[dict]) -> tuple[int, int]:
-    """返回 (y_true_event, y_pred_event)；假设同 event 的 y_true 一致。"""
+    """Open-source note: implementation detail."""
     yt = int(rows[0]["y_true"])
     preds = [int(r["y_pred"]) for r in rows]
     cnt = Counter(preds)

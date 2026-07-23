@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """
-EVT6 六分类 CNN baseline（用于与 SeisMoLLM_evt6 对比）。
+EVT6 data CNN baseline(data SeisMoLLM_evt6 data). 
 
-设计目标：
-- **同口径数据划分**：直接读取 `diting2_evt6_paperalign/meta_evt6_{train,val,test}.csv`
-- **同口径评测**：输出 `test_results_diting2_evt6_test.csv`（至少包含 pred_evt6/tgt_evt6），可直接喂给
-  `tools/report_evt6_results.py` 生成报告
-- **可复现**：seed 固定；保存 best checkpoint（按 val_acc）
-- **尽量不改现有框架**：独立脚本，便于 sbatch / nohup
+value: 
+- **data**: data `diting2_evt6_paperalign/meta_evt6_{train,val,test}.csv`
+- **data**: data `test_results_diting2_evt6_test.csv`(data pred_evt6/tgt_evt6), data
+  `tools/report_evt6_results.py` data
+- **data**: seed data; data best checkpoint(data val_acc)
+- **data**: data, data sbatch / nohup
 
-用法示例：
+value: 
 python tools/train_evt6_cnn_baseline.py \
   --data_dir /path/to/diting2_evt6 \
   --out_dir  `$REPO_ROOT/reports/cnn_evt6_baseline_xxx \
@@ -65,13 +65,13 @@ class Evt6NpyDataset(Dataset):
             raise FileNotFoundError(self.meta_csv)
         norm_mode = str(norm_mode).strip().lower()
         if norm_mode not in ("max", "std", "none", ""):
-            raise ValueError(f"未知 norm_mode={norm_mode}，应为 max/std/none")
+            raise ValueError(f"data norm_mode={norm_mode}, data max/std/none")
         self.norm_mode = "none" if norm_mode in ("none", "") else norm_mode
         self.df = pd.read_csv(self.meta_csv, low_memory=False)
         need_cols = {"_npy_path", "_evt6"}
         miss = need_cols - set(self.df.columns)
         if miss:
-            raise KeyError(f"meta 缺少列：{sorted(miss)} in {self.meta_csv}")
+            raise KeyError(f"meta value: {sorted(miss)} in {self.meta_csv}")
 
         # normalize path
         self.df["_npy_path"] = (
@@ -86,7 +86,7 @@ class Evt6NpyDataset(Dataset):
             self.df.reset_index(drop=True, inplace=True)
 
         self.y = self.df["_evt6"].astype(int).to_numpy()
-        # 用于 shared fs 抖动/文件缺失时返回全零样本，避免训练崩掉
+        # Open-source note: implementation detail.
         self.fallback_shape = (3, 8192)
         try:
             if len(self.df):
@@ -101,7 +101,7 @@ class Evt6NpyDataset(Dataset):
         return int(len(self.df))
 
     def _safe_load_npy(self, path: str) -> np.ndarray | None:
-        """共享盘偶发 ENOENT/IO 抖动：做重试；最终失败返回 None。"""
+        """Open-source note: implementation detail."""
         sleeps = [0.05, 0.1, 0.2, 0.5, 1.0, 2.0]
         last_e: Exception | None = None
         for i, s in enumerate(sleeps, start=1):
@@ -128,10 +128,10 @@ class Evt6NpyDataset(Dataset):
         if x is None:
             x = np.zeros(self.fallback_shape, dtype=np.float32)
         if x.ndim != 2 or x.shape[0] != 3:
-            raise ValueError(f"期望 (3,L) npy，但得到 {x.shape}: {p}")
-        # 清理 NaN/Inf，避免 loss=nan
+            raise ValueError(f"data (3,L) npy, data {x.shape}: {p}")
+        # Open-source note: implementation detail.
         x = np.nan_to_num(x, nan=0.0, posinf=0.0, neginf=0.0)
-        # 归一化（避免 AMP/大幅值输入导致溢出）
+        # Open-source note: implementation detail.
         if self.norm_mode == "max":
             denom = np.max(np.abs(x), axis=1, keepdims=True)
             denom = np.where(denom < 1e-6, 1.0, denom)
@@ -194,7 +194,7 @@ class _BasicBlock1D(nn.Module):
 
 
 class ResNet1D(nn.Module):
-    """更强的 1D ResNet baseline（比 cnn_small 更容易把 val acc 拉上去）。"""
+    """Open-source note: implementation detail."""
 
     def __init__(self, num_classes: int = 6, drop: float = 0.1):
         super().__init__()
@@ -231,7 +231,7 @@ def build_model(name: str, num_classes: int = 6, drop: float = 0.1) -> nn.Module
         return build_cnn(num_classes=num_classes)
     if name in ("resnet", "resnet1d", "resnet18_1d"):
         return ResNet1D(num_classes=num_classes, drop=drop)
-    raise ValueError(f"未知 model={name}，可选：cnn_small / resnet1d")
+    raise ValueError(f"data model={name}, value: cnn_small / resnet1d")
 
 
 @dataclass
@@ -299,26 +299,26 @@ def _counts(y: np.ndarray) -> Dict[str, int]:
 
 def main():
     ap = argparse.ArgumentParser(description="EVT6 CNN baseline training")
-    ap.add_argument("--mode", type=str, default="train_test", help="train_test 或 test_only（默认 train_test）")
-    ap.add_argument("--checkpoint", type=str, default="", help="test_only 时使用的 checkpoint；默认 out_dir/best.pt")
-    ap.add_argument("--data_dir", required=True, help="diting2_evt6_paperalign 目录（含 meta_evt6_*.csv）")
-    ap.add_argument("--out_dir", required=True, help="输出目录（保存 best.pt 与 test_results*.csv）")
-    ap.add_argument("--model", type=str, default="resnet1d", help="cnn_small 或 resnet1d（默认 resnet1d）")
-    ap.add_argument("--dropout", type=float, default=0.1, help="dropout 概率（默认 0.1）")
+    ap.add_argument("--mode", type=str, default="train_test", help="train_test data test_only(data train_test)")
+    ap.add_argument("--checkpoint", type=str, default="", help="test_only data checkpoint; data out_dir/best.pt")
+    ap.add_argument("--data_dir", required=True, help="diting2_evt6_paperalign data(data meta_evt6_*.csv)")
+    ap.add_argument("--out_dir", required=True, help="data(data best.pt data test_results*.csv)")
+    ap.add_argument("--model", type=str, default="resnet1d", help="cnn_small data resnet1d(data resnet1d)")
+    ap.add_argument("--dropout", type=float, default=0.1, help="dropout data(data 0.1)")
     ap.add_argument("--epochs", type=int, default=30)
     ap.add_argument("--batch_size", type=int, default=64)
     ap.add_argument("--lr", type=float, default=1e-3)
-    ap.add_argument("--max_lr", type=float, default=3e-3, help="OneCycleLR 的 max_lr（默认 3e-3）")
+    ap.add_argument("--max_lr", type=float, default=3e-3, help="OneCycleLR data max_lr(data 3e-3)")
     ap.add_argument("--weight_decay", type=float, default=1e-4)
-    ap.add_argument("--class_weight", type=str, default="balanced", help="none 或 balanced（默认 balanced）")
-    ap.add_argument("--label_smoothing", type=float, default=0.0, help="CrossEntropy label_smoothing（默认 0）")
-    ap.add_argument("--use_scheduler", type=int, default=1, help="是否启用 OneCycleLR（1/0）")
-    ap.add_argument("--grad_clip", type=float, default=1.0, help="梯度裁剪阈值（<=0 表示关闭）")
+    ap.add_argument("--class_weight", type=str, default="balanced", help="none data balanced(data balanced)")
+    ap.add_argument("--label_smoothing", type=float, default=0.0, help="CrossEntropy label_smoothing(data 0)")
+    ap.add_argument("--use_scheduler", type=int, default=1, help="data OneCycleLR(1/0)")
+    ap.add_argument("--grad_clip", type=float, default=1.0, help="data(<=0 data)")
     ap.add_argument("--seed", type=int, default=100)
     ap.add_argument("--num_workers", type=int, default=0)
     ap.add_argument("--pin_memory", type=int, default=1)
-    ap.add_argument("--norm_mode", type=str, default="max", help="输入归一化：max/std/none（默认 max）")
-    ap.add_argument("--amp", type=int, default=1, help="是否使用 AMP (1/0)")
+    ap.add_argument("--norm_mode", type=str, default="max", help="value: max/std/none(data max)")
+    ap.add_argument("--amp", type=int, default=1, help="data AMP (1/0)")
     args = ap.parse_args()
 
     data_dir = os.path.abspath(args.data_dir)
@@ -332,7 +332,7 @@ def main():
     test_csv = os.path.join(data_dir, "meta_evt6_test.csv")
     for p in [train_csv, val_csv, test_csv]:
         if not os.path.exists(p):
-            raise FileNotFoundError(f"缺少 split 文件：{p}")
+            raise FileNotFoundError(f"data split value: {p}")
 
     train_ds = Evt6NpyDataset(train_csv, norm_mode=args.norm_mode)
     val_ds = Evt6NpyDataset(val_csv, norm_mode=args.norm_mode)
@@ -375,7 +375,7 @@ def main():
     class_weight = None
     cw_mode = str(args.class_weight).strip().lower()
     if cw_mode not in ("none", "", "balanced"):
-        raise ValueError(f"未知 class_weight={args.class_weight}，应为 none/balanced")
+        raise ValueError(f"data class_weight={args.class_weight}, data none/balanced")
     if cw_mode == "balanced":
         # w_i = total / (C * count_i)
         counts = np.array([np.sum(train_ds.y == i) for i in range(6)], dtype=np.float32)
@@ -387,11 +387,11 @@ def main():
         class_weight = torch.tensor(w, dtype=torch.float32, device=device)
         print("[loss] class_weight:", {ID2NAME[i]: float(w[i]) for i in range(6)}, flush=True)
 
-    # label_smoothing 需要 torch>=1.10
+    # Open-source note: implementation detail.
     criterion = nn.CrossEntropyLoss(weight=class_weight, label_smoothing=float(args.label_smoothing))
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
     use_amp = bool(args.amp) and device.type == "cuda"
-    # torch>=2.0 推荐 torch.amp；旧版本回退 torch.cuda.amp
+    # Open-source note: implementation detail.
     if hasattr(torch, "amp") and hasattr(torch.amp, "GradScaler"):
         scaler = torch.amp.GradScaler("cuda", enabled=use_amp)
         autocast = lambda: torch.amp.autocast("cuda", enabled=scaler.is_enabled())
@@ -427,7 +427,7 @@ def main():
 
     mode = str(args.mode).strip().lower()
     if mode not in ("train_test", "test_only"):
-        raise ValueError(f"未知 mode={args.mode}，应为 train_test/test_only")
+        raise ValueError(f"data mode={args.mode}, data train_test/test_only")
 
     if mode == "train_test":
         for epoch in range(1, args.epochs + 1):
@@ -473,7 +473,7 @@ def main():
     else:
         ckpt_path = os.path.abspath(args.checkpoint) if args.checkpoint else best_path
         if not os.path.exists(ckpt_path):
-            raise FileNotFoundError(f"test_only 找不到 checkpoint: {ckpt_path}")
+            raise FileNotFoundError(f"test_only data checkpoint: {ckpt_path}")
 
     # Test with checkpoint
     ckpt = torch.load(ckpt_path, map_location="cpu")

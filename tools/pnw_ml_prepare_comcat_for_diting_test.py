@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
 """
-从 ComCat metadata 生成可供 `dataset-name diting2_evt6` 使用的 `meta_evt6_test.csv`。
+data ComCat metadata `dataset-name diting2_evt6` data `meta_evt6_test.csv`. 
 
-列约定（与 DiTing2Evt6 读取逻辑一致）：
+data(data DiTing2Evt6 data): 
   - key, part, _npy_path, _evt6
 
-标签对齐（用于与 DiTing EVT6 六类 head 对照）：
-  - ComCat earthquake -> _evt6=0  （对应 DiTing evt6: eq）
-  - ComCat explosion  -> _evt6=1  （对应 DiTing evt6: ep）
+data(data DiTing EVT6 data head data): 
+  - ComCat earthquake -> _evt6=0  (data DiTing evt6: eq)
+  - ComCat explosion  -> _evt6=1  (data DiTing evt6: ep)
 
-_npy_path 约定为相对 data_dir 的路径，例如 waves/<safe_key>.npy
-需先用 pnw_ml_export_hdf5_to_npy.py 导出 npy。
+_npy_path is stored relative to data_dir, for example waves/<safe_key>.npy
+data pnw_ml_export_hdf5_to_npy.py data npy. 
 
-可选列（透传，便于追溯）：
+data(data, data): 
   comcat_event_id, station_code, trace_name
 """
 from __future__ import annotations
@@ -34,7 +34,7 @@ def main() -> None:
     ap.add_argument(
         "--waves_subdir",
         default="waves",
-        help="相对于 external data_dir 的子目录名",
+        help="data external data_dir data",
     )
     args = ap.parse_args()
 
@@ -84,3 +84,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+

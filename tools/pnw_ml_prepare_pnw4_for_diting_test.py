@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-从 `pnw_ml_build_multiclass_manifest.py` 生成的 manifest（或等价列）生成
-`diting2_evt6` 可用的 `meta_evt6_test.csv`。
+data `pnw_ml_build_multiclass_manifest.py` data manifest(data)data
+`diting2_evt6` data `meta_evt6_test.csv`. 
 
-PNW 4 类（写入 _evt6，与 DiTing 六类 id **不同语义**）：
+PNW 4 data(data _evt6, data DiTing data id **data**): 
   0 earthquake, 1 explosion, 2 surface_event, 3 other_exotic
 
-说明：外测时模型仍为 **6 类 softmax**；`_evt6` 仅作 **PNW 真值** 写入 test_results，
-评测请用 `pnw_ml_eval_pnw4_multiclass.py`（4×6 混淆等），勿与 DiTing 内测六类直接混比。
+value: data **6 data softmax**; `_evt6` data **PNW data** data test_results, 
+data `pnw_ml_eval_pnw4_multiclass.py`(4x6 data), data DiTing data. 
 """
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ def safe_name(s: str) -> str:
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--manifest_csv", type=Path, required=True, help="multiclass manifest（含 dataset,event_id,trace_name,label,label_name）")
+    ap.add_argument("--manifest_csv", type=Path, required=True, help="multiclass manifest(dataset,event_id,trace_name,label,label_name)")
     ap.add_argument("--out_csv", type=Path, required=True)
     ap.add_argument("--waves_subdir", default="waves")
     args = ap.parse_args()

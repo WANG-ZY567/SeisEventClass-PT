@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 """
-从 waveform/station-level 的 EVT6 `test_results_*.csv` 聚合到 event-level。
+data waveform/station-level data EVT6 `test_results_*.csv` data event-level. 
 
-输入 CSV（xapp 跑分类时，ResultSaver 在 `--save-test-probs true` 下会写出）至少需要：
+metadata CSV(xapp data, ResultSaver data `--save-test-probs true` data)value: 
   - event_uid
   - tgt_evt6, pred_evt6
-  - （可选）prob_evt6_0..prob_evt6_5，用于 probability averaging / confidence weighted
+  - (data)prob_evt6_0..prob_evt6_5, data probability averaging / confidence weighted
 
-输出：
-  - 事件级混淆矩阵 CSV（各方法一份）
-  - 事件级 report markdown（各方法一份）
-  - event-level 明细 CSV（各方法一份）
+value: 
+  - metadata CSV(data)
+  - data report markdown(data)
+  - event-level metadata CSV(data)
 """
 
 import argparse
@@ -141,12 +141,12 @@ def _cm_to_markdown(cm: np.ndarray, names: List[str]) -> str:
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--results_csv", type=str, required=True, help="test_results_*.csv path")
-    ap.add_argument("--out_dir", type=str, default="", help="输出目录（默认基于 results_csv 所在目录）")
+    ap.add_argument("--out_dir", type=str, default="", help="data(data results_csv data)")
     ap.add_argument(
         "--methods",
         type=str,
         default="hard,prob_avg,conf_weighted",
-        help="聚合方法列表：hard,prob_avg,conf_weighted（逗号分隔）",
+        help="value: hard,prob_avg,conf_weighted(data)",
     )
     args = ap.parse_args()
 
@@ -156,7 +156,7 @@ def main() -> None:
 
     methods = [m.strip() for m in args.methods.split(",") if m.strip()]
     if not methods:
-        raise ValueError("methods 不能为空")
+        raise ValueError("methods data")
 
     out_dir = os.path.abspath(args.out_dir) if args.out_dir else os.path.dirname(csv_path)
     os.makedirs(out_dir, exist_ok=True)
@@ -165,7 +165,7 @@ def main() -> None:
     required_cols = ["event_uid", "tgt_evt6", "pred_evt6"]
     missing = [c for c in required_cols if c not in df.columns]
     if missing:
-        raise KeyError(f"CSV 缺少必要列：{missing}，实际列：{list(df.columns)}")
+        raise KeyError(f"CSV value: {missing}, value: {list(df.columns)}")
 
     prob_cols = [f"prob_evt6_{i}" for i in range(NUM_CLASSES)]
     has_prob = all(c in df.columns for c in prob_cols)
@@ -175,14 +175,14 @@ def main() -> None:
     event_rows_by_method: Dict[str, pd.DataFrame] = {}
 
     event_uids = df["event_uid"].astype(str)
-    # 预先计算 event 内 tgt 是否一致，用于报告
+    # Open-source note: implementation detail.
     tgt_consistent_flags = {}
     for evt_uid, g in df.groupby(event_uids):
         tgt_vals = g["tgt_evt6"].astype(int).to_numpy()
         tgt_consistent_flags[evt_uid] = int(len(np.unique(tgt_vals)) == 1)
     num_inconsistent = int(sum(1 for v in tgt_consistent_flags.values() if v == 0))
 
-    # Event-level 聚合
+    # Open-source note: implementation detail.
     for method in methods:
         method_prob_cols = prob_cols if (method != "hard" and has_prob) else None
         rows = []
@@ -203,12 +203,12 @@ def main() -> None:
             )
 
         event_df = pd.DataFrame(rows)
-        # 保存明细
+        # Open-source note: implementation detail.
         method_tag = method
         detail_csv = os.path.join(out_dir, f"event_level_details_evt6_{method_tag}.csv")
         event_df.to_csv(detail_csv, index=False)
 
-        # 计算指标
+        # Open-source note: implementation detail.
         y_true_evt = event_df["tgt_evt6"].astype(int).to_numpy()
         y_pred_evt = event_df["pred_evt6"].astype(int).to_numpy()
         acc, cm = _compute_acc_cm(y_true_evt, y_pred_evt)
@@ -225,7 +225,7 @@ def main() -> None:
             columns=[f"pred_{ID2NAME[i]}" for i in range(NUM_CLASSES)],
         ).to_csv(cm_csv)
 
-        # 分桶分析
+        # Open-source note: implementation detail.
         bucket_metrics = []
         for bucket_name in ["1", "2-3", "4-5", "6+"]:
             sub = event_df.loc[event_df["bucket"] == bucket_name]
@@ -237,21 +237,21 @@ def main() -> None:
             _, macro_f1_b = _per_class_f1(cm_b)
             bucket_metrics.append((bucket_name, int(sub.shape[0]), acc_b, macro_f1_b))
 
-        # 输出 report
+        # Open-source note: implementation detail.
         names = [ID2NAME[i] for i in range(NUM_CLASSES)]
         md_path = os.path.join(out_dir, f"EVT6_EVENT_LEVEL_REPORT_{method_tag}.md")
         with open(md_path, "w", encoding="utf-8") as f:
-            f.write("# EVT6 事件级聚合评估报告 (Event-level)\n\n")
-            f.write(f"- 输入 CSV：`{csv_path}`\n")
-            f.write(f"- 聚合方法：`{method}` ({_method_name(method)})\n")
-            f.write(f"- 事件数：{int(event_df.shape[0])}\n")
-            f.write(f"- event 内 tgt_evt6 不一致事件数（取 mode）：{num_inconsistent}\n")
-            f.write(f"- 事件级 Accuracy：{acc:.4f}\n")
-            f.write(f"- 事件级 Macro-F1：{macro_f1:.4f}\n")
-            f.write(f"- 混淆矩阵 CSV：`{cm_csv}`\n")
+            f.write("# EVT6 Event-Level Report\n\n")
+            f.write(f"- metadata CSV: `{csv_path}`\n")
+            f.write(f"- value: `{method}` ({_method_name(method)})\n")
+            f.write(f"- value: {int(event_df.shape[0])}\n")
+            f.write(f"- event data tgt_evt6 data(data mode): {num_inconsistent}\n")
+            f.write(f"- data Accuracy: {acc:.4f}\n")
+            f.write(f"- data Macro-F1: {macro_f1:.4f}\n")
+            f.write(f"- metadata CSV: `{cm_csv}`\n")
             f.write("\n---\n\n")
 
-            f.write("## 1) 各类别指标（按事件统计）\n\n")
+            f.write("## Per-class metrics\n\n")
             f.write("| class | support | precision | recall | f1 |\n")
             f.write("|---|---:|---:|---:|---:|\n")
             for r in per_class:
@@ -260,11 +260,11 @@ def main() -> None:
                 )
 
             f.write("\n---\n\n")
-            f.write("## 2) Confusion Matrix（true x pred）\n\n")
+            f.write("## 2) Confusion Matrix(true x pred)\n\n")
             f.write(_cm_to_markdown(cm, names))
 
             f.write("\n---\n\n")
-            f.write("## 3) 按 event 内样本数分桶\n\n")
+            f.write("## Confidence buckets\n\n")
             f.write("| bucket | #events | accuracy | macro-f1 |\n")
             f.write("|---|---:|---:|---:|\n")
             for bucket_name, n_evt, acc_b, macro_f1_b in bucket_metrics:

@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """
-PNW 4 类真值（tgt_evt6 ∈ {0,1,2,3}）× DiTing 六类预测（pred_evt6 ∈ {0..5}）评测。
+PNW 4 data(tgt_evt6 in {0,1,2,3})x DiTing data(pred_evt6 in {0..5})data. 
 
-输出：
-  - contingency_4x6：真值 PNW4 × 预测 EVT6 计数
-  - subset_accuracy_eq_ep：仅 ComCat 语义（tgt 0/1）上 pred==tgt 的比例
-  - row_normalized_4x6：按真值行归一化（便于看图）
-  - per_true_class_support：各类真值样本数
+value: 
+  - contingency_4x6: data PNW4 x data EVT6 data
+  - subset_accuracy_eq_ep: data ComCat data(tgt 0/1)data pred==tgt data
+  - row_normalized_4x6: data(data)
+  - per_true_class_support: data
 
-注意：tgt 的 2/3 与 pred 的 2..5 **语义不对等**，请勿用「pred==tgt」对 tgt∈{2,3} interpret 为六类准确率。
+value: tgt data 2/3 data pred data 2..5 **data**, data"pred==tgt"data tgtin{2,3} interpret data. 
 """
 from __future__ import annotations
 
@@ -61,7 +61,7 @@ def main() -> None:
         "n_rows_used": n,
         "subset_accuracy_eq_ep_pred_matches_di_ting_eq_ep": acc_ep,
         "n_subset_eq_ep": n_eq_ep,
-        "note_eq_ep": "仅 tgt∈{0,1}；要求 pred_evt6 与 tgt 一致（与 ComCat 二分类严格口径一致）。",
+        "note_eq_ep": "data tgtin{0,1}; data pred_evt6 data tgt data(data ComCat data). ",
         "contingency_true_pnw4_by_pred_evt6": {
             "true_pnw4_labels": list(PNW4),
             "pred_evt6_labels": list(EVT6),
@@ -69,7 +69,7 @@ def main() -> None:
         },
         "row_normalized_4x6": row_norm,
         "support_per_true_pnw4": {PNW4[i]: row_sum[i] for i in range(4)},
-        "note": "PNW4 与 EVT6 语义不同；2×6/3×6 列为「真值该类样本的预测分布」，非对角准确率。",
+        "note": "Rows are true PNW4 labels and columns are predicted EVT6 labels; off-diagonal cells indicate cross-label assignments.",
     }
     args.out_json.parent.mkdir(parents=True, exist_ok=True)
     args.out_json.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n")

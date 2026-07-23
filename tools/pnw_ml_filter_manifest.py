@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""按 split 列过滤 traces_manifest_all_splits.csv，输出子集 CSV。"""
+"""Open-source note: implementation detail."""
 from __future__ import annotations
 
 import argparse
@@ -13,7 +13,7 @@ def main() -> None:
     ap.add_argument(
         "--splits",
         required=True,
-        help="逗号分隔，如 source_train,source_val",
+        help="data, data source_train,source_val",
     )
     ap.add_argument("--out_csv", type=Path, required=True)
     args = ap.parse_args()

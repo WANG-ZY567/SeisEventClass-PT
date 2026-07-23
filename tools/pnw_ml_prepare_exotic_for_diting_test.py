@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """
-Exotic：生成 meta_evt6_test.csv，用于 **仅推理**（OOD / case study）。
+Exotic: data meta_evt6_test.csv, data **data**(OOD / case study). 
 
-说明：
-  - DiTing EVT6 与 Exotic **不对齐**；默认 `--dummy_evt6 0` 仅为满足部分测试管线对标签张量的形状要求。
-  - **不要** 用该 dummy 标签计算「DiTing 原任务准确率」；Exotic 只看 **pred_evt6 分布** 与 case study。
+value: 
+  - DiTing EVT6 data Exotic **data**; data `--dummy_evt6 0` data. 
+  - **data** data dummy data"DiTing data"; Exotic data **pred_evt6 data** data case study. 
 
-附加列 `pnw_source_type` 供后续统计预测分布。
+data `pnw_source_type` data. 
 
-导出 npy 后路径与 ComCat 脚本同约定。
+data npy data ComCat data. 
 """
 from __future__ import annotations
 
@@ -31,7 +31,7 @@ def main() -> None:
         "--dummy_evt6",
         type=int,
         default=0,
-        help="占位标签 0..5；Exotic 分析请忽略 tgt，只看预测分布",
+        help="data 0..5; Exotic data tgt, data",
     )
     args = ap.parse_args()
 

@@ -1,16 +1,16 @@
 """
-DiTing2.0 事件类型 5 类分类数据集适配器（剔除 se）
+DiTing2.0 data 5 data(data se)
 
-基于 tools/prepare_diting2_evt6.py 生成的 meta_evt6*.csv 与 waves/*.npy：
-原 evt6 id 映射：
+data tools/prepare_diting2_evt6.py data meta_evt6*.csv data waves/*.npy: 
+data evt6 id value: 
   eq -> 0
   ep -> 1
   co/ss -> 2
   sp -> 3
-  se -> 4  (被剔除)
+  se -> 4  (data)
   ot -> 5
 
-evt5 重映射（剔除 se 后压缩成 0..4）：
+evt5 data(data se data 0..4): 
   eq -> 0
   ep -> 1
   co -> 2
@@ -33,7 +33,7 @@ from ._factory import register_dataset
 __all__ = ["DiTing2Evt5"]
 
 
-# evt6->evt5 映射（剔除 se=4）
+# Open-source note: implementation detail.
 _EVT6_TO_EVT5 = {0: 0, 1: 1, 2: 2, 3: 3, 5: 4}
 
 
@@ -67,7 +67,7 @@ class DiTing2Evt5(DatasetBase):
         )
 
     def _load_meta_data(self, filename=None) -> pd.DataFrame:
-        # 复用 EVT6 的元数据文件命名（meta_evt6_*.csv 或 meta_evt6.csv）
+        # Open-source note: implementation detail.
         if filename is None:
             strict_name = f"meta_evt6_{self._mode}.csv"
             strict_path = os.path.join(self._data_dir, strict_name)
@@ -81,10 +81,10 @@ class DiTing2Evt5(DatasetBase):
             use_ratio_split = filename == "meta_evt6.csv"
 
         csv_path = os.path.join(self._data_dir, filename)
-        logger.info(f"[DiTing2Evt5] 加载元数据：{csv_path}")
+        logger.info(f"[DiTing2Evt5] Loading metavalue: {csv_path}")
         meta_df = pd.read_csv(csv_path, low_memory=False)
 
-        # 清理空格
+        # Open-source note: implementation detail.
         for k in meta_df.columns:
             if meta_df[k].dtype in [object, np.object_, "object", "O"]:
                 meta_df[k] = meta_df[k].astype(str).str.replace(" ", "")
@@ -94,7 +94,7 @@ class DiTing2Evt5(DatasetBase):
             meta_df = meta_df.sample(frac=1, replace=False, random_state=self._seed)
         meta_df.reset_index(drop=True, inplace=True)
 
-        # split（仅对 meta_evt6.csv 生效）
+        # Open-source note: implementation detail.
         if use_ratio_split and self._data_split:
             irange = {}
             irange["train"] = [0, int(self._train_size * meta_df.shape[0])]
@@ -108,9 +108,9 @@ class DiTing2Evt5(DatasetBase):
             meta_df = meta_df.iloc[r[0] : r[1], :]
             logger.info(f"[DiTing2Evt5] Data Split: {self._mode}: {r[0]}-{r[1]}")
 
-        # 过滤 se（evt6==4），并创建 _evt5（供 class-balanced/统计用）
+        # Open-source note: implementation detail.
         if "_evt6" not in meta_df.columns:
-            raise KeyError("[DiTing2Evt5] meta 缺少列：_evt6（请确认使用 prepare_diting2_evt6.py 生成的 meta）")
+            raise KeyError("[DiTing2Evt5] Metadata must contain _evt6; run tools/prepare_diting2_evt6.py first.")
         meta_df["_evt6"] = meta_df["_evt6"].astype(int)
         before = int(len(meta_df))
         meta_df = meta_df.loc[meta_df["_evt6"] != 4].copy()

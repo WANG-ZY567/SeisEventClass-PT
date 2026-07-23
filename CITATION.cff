@@ -1,24 +1,25 @@
 cff-version: 1.2.0
 title: "SeisEventClass-PT: Seismic Event Classification with Pretrained Transformers"
-message: "If you use this code, please cite the associated SeisMoLLM work and acknowledge this EVT6 event-classification codebase."
+message: "If you use this software, please cite the associated SeisEventClass-PT manuscript and this repository."
 type: software
 authors:
   - family-names: Wang
-    given-names: Xinghao
-  - family-names: Liu
-    given-names: Feng
-  - family-names: Su
-    given-names: Rui
+    given-names: Jianrong
   - family-names: Wang
-    given-names: Zhihui
-  - family-names: Fang
-    given-names: Lihua
-  - family-names: Zhou
-    given-names: Lianqing
-  - family-names: Bai
-    given-names: Lei
-  - family-names: Ouyang
-    given-names: Wanli
+    given-names: Zhiying
+  - family-names: Jiang
+    given-names: Tonglin
+  - family-names: Li
+    given-names: Weikai
+  - family-names: Zhang
+    given-names: Ju
+  - family-names: Hu
+    given-names: Dengcheng
+  - family-names: Wang
+    given-names: Jian
+  - family-names: Sun
+    given-names: Luqiang
 license: MIT
-url: "https://arxiv.org/abs/2502.19960"
-date-released: 2025-02-27
+repository-code: "https://github.com/WANG-ZY567/SeisEventClass-PT"
+url: "https://github.com/WANG-ZY567/SeisEventClass-PT"
+date-released: 2026-07-23

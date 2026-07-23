@@ -236,7 +236,7 @@ def count_parameters(module: torch.nn.Module) -> int:
     return total_params, trainable_params, trainable_ratio
 
 def cal_snr(
-    data: np.ndarray, pat: int, window: int = 500, method: str = "power"
+    value: np.ndarray, pat: int, window: int = 500, method: str = "power"
 ) -> float:
     """Estimates SNR.
 

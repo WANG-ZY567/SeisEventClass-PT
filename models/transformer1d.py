@@ -1,6 +1,6 @@
 """
 Vanilla Transformer for 1D Time Series Classification (EVT6)
-使用标准 PyTorch Transformer + 稳定的初始化
+data PyTorch Transformer + data
 """
 
 import torch
@@ -11,8 +11,8 @@ from ._factory import register_model
 
 class StandardTransformer1D(nn.Module):
     """
-    标准 Transformer Encoder for 时序分类
-    使用 PyTorch 内置组件，确保数值稳定性
+    data Transformer Encoder for data
+    data PyTorch data, data
     """
     def __init__(
         self,
@@ -24,7 +24,7 @@ class StandardTransformer1D(nn.Module):
         dim_feedforward=1024,
         dropout=0.1,
         max_seq_len=8192,
-        downsample_factor=16,  # 降采样因子
+        downsample_factor=16,  # Open-source note: implementation detail.
     ):
         super().__init__()
         
@@ -33,23 +33,23 @@ class StandardTransformer1D(nn.Module):
         self.d_model = d_model
         self.downsample_factor = downsample_factor
         
-        # 计算下采样后的序列长度
+        # Open-source note: implementation detail.
         self.seq_len = max_seq_len // downsample_factor
         
-        # 下采样 + 投影: [B, 3, 8192] -> [B, d_model, 512]
-        # 不用 BatchNorm，避免数值不稳定
+        # Open-source note: implementation detail.
+        # Open-source note: implementation detail.
         self.stem = nn.Sequential(
             nn.Conv1d(in_channels, d_model, kernel_size=downsample_factor, stride=downsample_factor),
             nn.GELU(),
         )
         
-        # 可学习的位置编码
+        # Open-source note: implementation detail.
         self.pos_embedding = nn.Parameter(torch.zeros(1, self.seq_len, d_model))
         nn.init.normal_(self.pos_embedding, std=0.02)
         
         self.dropout = nn.Dropout(dropout)
         
-        # 标准 PyTorch Transformer Encoder
+        # Open-source note: implementation detail.
         encoder_layer = nn.TransformerEncoderLayer(
             d_model=d_model,
             nhead=nhead,
@@ -57,7 +57,7 @@ class StandardTransformer1D(nn.Module):
             dropout=dropout,
             activation='gelu',
             batch_first=True,
-            norm_first=True,  # Pre-LN，更稳定
+            norm_first=True,  # Open-source note: implementation detail.
         )
         self.transformer_encoder = nn.TransformerEncoder(
             encoder_layer,
@@ -65,14 +65,14 @@ class StandardTransformer1D(nn.Module):
             norm=nn.LayerNorm(d_model),
         )
         
-        # 分类头
+        # Open-source note: implementation detail.
         self.head = nn.Sequential(
             nn.LayerNorm(d_model),
             nn.Dropout(dropout),
             nn.Linear(d_model, num_classes)
         )
         
-        # 初始化权重
+        # Open-source note: implementation detail.
         self.apply(self._init_weights)
     
     def _init_weights(self, m):
@@ -89,68 +89,68 @@ class StandardTransformer1D(nn.Module):
     def forward(self, x):
         """
         Args:
-            x: [B, 3, 8192] - 三通道波形
+            x: [B, 3, 8192] - data
         
         Returns:
-            probs: [B, num_classes]  (softmax 概率，匹配本仓库的 `CELoss` 约定)
+            probs: [B, num_classes]  (softmax data, data `CELoss` data)
         """
         B = x.shape[0]
         
-        # 检查并清理输入数据
+        # Open-source note: implementation detail.
         if torch.isnan(x).any() or torch.isinf(x).any():
-            print(f"⚠️ 输入数据有 nan/inf!")
+            print(f"[WARN] data nan/inf!")
             x = torch.nan_to_num(x, nan=0.0, posinf=1.0, neginf=-1.0)
         
-        # 下采样和投影: [B, 3, 8192] -> [B, d_model, seq_len]
+        # Open-source note: implementation detail.
         x = self.stem(x)  # [B, d_model, seq_len]
         if torch.isnan(x).any() or torch.isinf(x).any():
-            print(f"⚠️ stem 输出有 nan/inf!")
+            print(f"[WARN] stem data nan/inf!")
             x = torch.nan_to_num(x, nan=0.0, posinf=1.0, neginf=-1.0)
         
-        # 转置为 [B, seq_len, d_model]
+        # Open-source note: implementation detail.
         x = x.transpose(1, 2)  # [B, seq_len, d_model]
         
-        # 添加位置编码
+        # Open-source note: implementation detail.
         x = x + self.pos_embedding[:, :x.size(1), :]
         if torch.isnan(x).any() or torch.isinf(x).any():
-            print(f"⚠️ 位置编码后有 nan/inf!")
+            print(f"[WARN] data nan/inf!")
             x = torch.nan_to_num(x, nan=0.0, posinf=1.0, neginf=-1.0)
         x = self.dropout(x)
         
         # Transformer encoding
         x = self.transformer_encoder(x)  # [B, seq_len, d_model]
         if torch.isnan(x).any() or torch.isinf(x).any():
-            print(f"⚠️ transformer_encoder 输出有 nan/inf!")
+            print(f"[WARN] transformer_encoder data nan/inf!")
             x = torch.nan_to_num(x, nan=0.0, posinf=1.0, neginf=-1.0)
         
         # Global average pooling
         x = x.mean(dim=1)  # [B, d_model]
         
-        # 分类
+        # Open-source note: implementation detail.
         logits = self.head(x)  # [B, num_classes]
         if torch.isnan(logits).any() or torch.isinf(logits).any():
-            print(f"⚠️ 最终输出有 nan/inf!")
+            print(f"[WARN] data nan/inf!")
             logits = torch.nan_to_num(logits, nan=0.0, posinf=10.0, neginf=-10.0)
 
-        # 注意：本仓库的 `models.loss.CELoss` 期望输入是概率（已 softmax）
+        # Open-source note: implementation detail.
         probs = torch.softmax(logits, dim=1)
         return probs
 
 
 # =====================================================
-# EVT6 任务的具体配置
+# Open-source note: implementation detail.
 # =====================================================
 
 @register_model
 def Transformer1D_evt6(**kwargs):
     """
-    EVT6 分类的标准 Transformer
+    EVT6 data Transformer
     
-    配置：
-    - d_model=256 (较小，避免过拟合)
+    value: 
+    - d_model=256 (data, data)
     - nhead=8
-    - num_layers=4 (较浅，提高稳定性)
-    - downsample_factor=16 (8192 -> 512，避免显存爆炸)
+    - num_layers=4 (data, data)
+    - downsample_factor=16 (8192 -> 512, data)
     """
     model = StandardTransformer1D(
         in_channels=3,
@@ -169,10 +169,10 @@ def Transformer1D_evt6(**kwargs):
 @register_model
 def Transformer1D_evt6_ds8(**kwargs):
     """
-    EVT6 Transformer baseline（更长序列）：
+    EVT6 Transformer baseline(data): 
     - downsample_factor=8  (8192 -> 1024 tokens)
 
-    说明：序列更长，注意显存；建议 batch_size<=32（不够就降到16）。
+    value: data, data; data batch_size<=32(text16). 
     """
     model = StandardTransformer1D(
         in_channels=3,
@@ -191,11 +191,11 @@ def Transformer1D_evt6_ds8(**kwargs):
 @register_model
 def Transformer1D_evt6_ds8_large(**kwargs):
     """
-    ds8 + 更大容量：
+    ds8 + value: 
     - downsample_factor=8  (8192 -> 1024 tokens)
     - d_model=512, num_layers=6, dim_feedforward=2048
 
-    说明：比 ds8 基线更强，通常 80G 显存可配 batch_size≈16~32（视是否启用 AMP/compile）。
+    value: data ds8 data, data 80G data batch_sizeapprox16~32(data AMP/compile). 
     """
     model = StandardTransformer1D(
         in_channels=3,
@@ -214,10 +214,10 @@ def Transformer1D_evt6_ds8_large(**kwargs):
 @register_model
 def Transformer1D_evt6_ds4(**kwargs):
     """
-    EVT6 Transformer baseline（更长序列）：
+    EVT6 Transformer baseline(data): 
     - downsample_factor=4  (8192 -> 2048 tokens)
 
-    说明：注意 self-attention 复杂度 O(L^2)；建议 batch_size<=16（不够就降到8）。
+    value: data self-attention data O(L^2); data batch_size<=16(text8). 
     """
     model = StandardTransformer1D(
         in_channels=3,
@@ -236,11 +236,11 @@ def Transformer1D_evt6_ds4(**kwargs):
 @register_model
 def Transformer1D_evt6_ds4_large(**kwargs):
     """
-    ds4 + 更大容量：
+    ds4 + value: 
     - downsample_factor=4  (8192 -> 2048 tokens)
     - d_model=512, num_layers=6, dim_feedforward=2048
 
-    说明：注意 self-attention O(L^2)；建议 batch_size≈8~16 起步（80G 视实现/缓存而定）。
+    value: data self-attention O(L^2); data batch_sizeapprox8~16 data(80G data/data). 
     """
     model = StandardTransformer1D(
         in_channels=3,
@@ -259,10 +259,10 @@ def Transformer1D_evt6_ds4_large(**kwargs):
 @register_model
 def Transformer1D_evt6_ds2(**kwargs):
     """
-    EVT6 Transformer baseline（超长序列）：
+    EVT6 Transformer baseline(data): 
     - downsample_factor=2  (8192 -> 4096 tokens)
 
-    说明：self-attention 复杂度 O(L^2)；强烈建议 batch_size<=8（不够就降到4/2）。
+    value: self-attention data O(L^2); data batch_size<=8(text4/2). 
     """
     model = StandardTransformer1D(
         in_channels=3,
@@ -281,7 +281,7 @@ def Transformer1D_evt6_ds2(**kwargs):
 @register_model
 def Transformer1D_evt6_small(**kwargs):
     """
-    更小的配置（快速实验）
+    data(data)
     """
     model = StandardTransformer1D(
         in_channels=3,
@@ -300,7 +300,7 @@ def Transformer1D_evt6_small(**kwargs):
 @register_model
 def Transformer1D_evt6_large(**kwargs):
     """
-    更大的配置（如果小模型效果好）
+    data(data)
     """
     model = StandardTransformer1D(
         in_channels=3,
@@ -317,14 +317,14 @@ def Transformer1D_evt6_large(**kwargs):
 
 
 # =====================================================
-# EVT3 任务的具体配置（3-way classification）
+# Open-source note: implementation detail.
 # =====================================================
 
 
 @register_model
 def Transformer1D_evt3(**kwargs):
     """
-    EVT3 分类的标准 Transformer（默认 ds16 -> 512 tokens）。
+    EVT3 data Transformer(data ds16 -> 512 tokens). 
     """
     model = StandardTransformer1D(
         in_channels=3,
@@ -342,7 +342,7 @@ def Transformer1D_evt3(**kwargs):
 
 @register_model
 def Transformer1D_evt3_ds8(**kwargs):
-    """EVT3 + 更长序列（ds8 -> 1024 tokens）。"""
+    """Open-source note: implementation detail."""
     model = StandardTransformer1D(
         in_channels=3,
         num_classes=3,
@@ -359,7 +359,7 @@ def Transformer1D_evt3_ds8(**kwargs):
 
 @register_model
 def Transformer1D_evt3_ds4(**kwargs):
-    """EVT3 + 更长序列（ds4 -> 2048 tokens）。"""
+    """Open-source note: implementation detail."""
     model = StandardTransformer1D(
         in_channels=3,
         num_classes=3,
@@ -375,7 +375,7 @@ def Transformer1D_evt3_ds4(**kwargs):
 
 
 if __name__ == "__main__":
-    # 测试
+    # Open-source note: implementation detail.
     model = Transformer1D_evt6()
     model.eval()
     
@@ -386,7 +386,7 @@ if __name__ == "__main__":
     print(f"Output: {y.shape}")
     print(f"Total params: {sum(p.numel() for p in model.parameters()):,}")
     
-    # 测试训练
+    # Open-source note: implementation detail.
     model.train()
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
     loss_fn = nn.CrossEntropyLoss()

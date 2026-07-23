@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-PNW-ML：读取 ComCat / Exotic metadata CSV，打印字段可用性与类别/事件统计。
-不访问 HDF5；不训练模型。用法见 reports/pnw_ml/PNW_ML_EXPERIMENT_PROTOCOL.md
+PNW-ML: data ComCat / Exotic metametadata CSV, data/data. 
+data HDF5; data. data reports/pnw_ml/PNW_ML_EXPERIMENT_PROTOCOL.md
 """
 from __future__ import annotations
 
@@ -34,9 +34,9 @@ def summarize_comcat(path: Path) -> None:
     with path.open(newline="") as f:
         r = csv.DictReader(f)
         fields = r.fieldnames or []
-        print("列数:", len(fields))
+        print("value:", len(fields))
         for c in REQUIRED_COMCAT:
-            print(f"  [{c}]", "存在" if c in fields else "缺失")
+            print(f"  [{c}]", "data" if c in fields else "data")
         for row in r:
             n += 1
             eid = (row.get("event_id") or "").strip()
@@ -50,22 +50,22 @@ def summarize_comcat(path: Path) -> None:
                 v = row.get(c)
                 if v is None or str(v).strip() == "" or str(v).lower() == "nan":
                     na[c] += 1
-    print("行数(样本/波形级):", n)
-    print("唯一 event_id 数:", len(all_ev))
+    print("data(data/data):", n)
+    print("data event_id value:", len(all_ev))
     for c in REQUIRED_COMCAT:
-        print(f"  {c} 非空约: {n - na[c]}")
-    print("source_type 分布 (trace 数):")
+        print(f"  {c} value: {n - na[c]}")
+    print("source_type data (trace data):")
     for k, v in st_tr.most_common():
         ne = len(st_ev.get(k.lower(), set()))
-        print(f"  {k!r}: traces={v}, unique_events≈{ne}")
+        print(f"  {k!r}: traces={v}, unique_eventsapprox{ne}")
     eq = st_tr.get("earthquake", 0)
     ex = st_tr.get("explosion", 0)
     print(
-        "二分类 trace: earthquake=", eq, " explosion=", ex,
-        " 合计=", eq + ex,
+        "data trace: earthquake=", eq, " explosion=", ex,
+        " data=", eq + ex,
     )
     print(
-        "二分类 event: earthquake=",
+        "data event: earthquake=",
         len(st_ev.get("earthquake", set())),
         " explosion=",
         len(st_ev.get("explosion", set())),
@@ -82,10 +82,10 @@ def summarize_exotic(path: Path) -> None:
     with path.open(newline="") as f:
         r = csv.DictReader(f)
         fields = list(r.fieldnames or [])
-        print("列:", fields)
-        print("source_type_pnsn_label:", "存在" if "source_type_pnsn_label" in fields else "不存在(本文件通常无此列)")
+        print("value:", fields)
+        print("source_type_pnsn_label:", "data" if "source_type_pnsn_label" in fields else "data(data)")
         has_station = "station_latitude_deg" in fields and "station_longitude_deg" in fields
-        print("可用于区域/地理的坐标: 仅有 station_latitude_deg / station_longitude_deg (无震源经纬度)")
+        print("data/value: data station_latitude_deg / station_longitude_deg (data)")
         for row in r:
             n += 1
             eid = (row.get("event_id") or "").strip()
@@ -95,13 +95,13 @@ def summarize_exotic(path: Path) -> None:
             st_tr[st] += 1
             if eid and st:
                 st_ev[st].add(eid)
-    print("行数(样本/波形级):", n)
-    print("唯一 event_id 数:", len(all_ev))
-    print("source_type 分布:")
+    print("data(data/data):", n)
+    print("data event_id value:", len(all_ev))
+    print("source_type value:")
     for k, v in st_tr.most_common():
         ne = len(st_ev[k])
         print(f"  {k!r}: traces={v}, events={ne}")
-    print("说明: plane crash 若 events 极少，不宜作为独立主类，建议并入 other_exotic 或仅做 case study。")
+    print("value: plane crash data events data, data, data other_exotic data case study. ")
 
 
 def main() -> None:

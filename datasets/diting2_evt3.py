@@ -1,15 +1,15 @@
 """
-DiTing2.0 三分类（论文口径）数据集适配器：EQ / EP / CO
+DiTing2.0 data(data)value: EQ / EP / CO
 
-说明：
-- 直接读取你在 `/复现2/data` 目录下生成的三类 numpy：
+value: 
+- data `/text2/data` data numpy: 
   - natural_datas.npy                 -> EQ (0)
   - non_natural_datas_blasting.npy    -> EP (1)
   - non_natural_datas_collapse.npy    -> CO (2)
-- 不依赖 meta.csv；split 在 dataset 内部按 seed 固定可复现。
-- 训练/验证数量尽量对齐论文（EQ: 6778/300, EP: 5300/313, CO: 5000/311），
-  但当某类总量不足（例如 EP=5612）时，会自动使用“能用的最大数量”，并在日志中提示。
-- 为对齐原论文评测口径：test 默认与 val 相同（test_from_val=True）。
+- data meta.csv; split dataset data seed data. 
+- data/data(EQ: 6778/300, EP: 5300/313, CO: 5000/311), 
+  data(data EP=5612)data, data"data", data. 
+- value: test data val data(test_from_val=True). 
 """
 
 from __future__ import annotations
@@ -84,8 +84,8 @@ class DiTing2Evt3(DatasetBase):
         for p in (eq_path, ep_path, co_path):
             if not os.path.exists(p):
                 raise FileNotFoundError(
-                    f"[DiTing2Evt3] 找不到数据文件：{p}\n"
-                    f"请确认 --data 指向 /复现2/data（包含 natural_datas.npy 等）。"
+                    f"[DiTing2Evt3] Required array not found: {p}\n"
+                    "Set --data to the prepared directory containing natural_datas.npy and non-natural arrays."
                 )
 
         self._x_eq = np.load(eq_path, mmap_mode="r")
@@ -99,7 +99,7 @@ class DiTing2Evt3(DatasetBase):
 
         if (use_eq, use_ep, use_co) != (self._eq_total, self._ep_total, self._co_total):
             logger.warning(
-                f"[DiTing2Evt3] 类别总量不足或被截断："
+                "[DiTing2Evt3] Available samples are fewer than the configured target counts: "
                 f"EQ {n_eq}->{use_eq} (target {self._eq_total}), "
                 f"EP {n_ep}->{use_ep} (target {self._ep_total}), "
                 f"CO {n_co}->{use_co} (target {self._co_total})."

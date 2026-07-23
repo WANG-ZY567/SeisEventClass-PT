@@ -218,7 +218,7 @@ def InceptionTime_evt6_ds8(**kwargs):
 
 
 # =====================================================
-# EVT3 任务（3-way classification）
+# Open-source note: implementation detail.
 # =====================================================
 
 
@@ -235,7 +235,7 @@ def InceptionTime_evt3(**kwargs):
 
 @register_model
 def InceptionTime_evt3_ds2(**kwargs):
-    """EVT3 + model-internal downsample×2 (faster)."""
+    """EVT3 + model-internal downsamplex2 (faster)."""
     model = InceptionTime1D(
         in_channels=3,
         num_classes=3,
@@ -246,7 +246,7 @@ def InceptionTime_evt3_ds2(**kwargs):
 
 @register_model
 def InceptionTime_evt3_ds4(**kwargs):
-    """EVT3 + model-internal downsample×4 (faster)."""
+    """EVT3 + model-internal downsamplex4 (faster)."""
     model = InceptionTime1D(
         in_channels=3,
         num_classes=3,
@@ -257,7 +257,7 @@ def InceptionTime_evt3_ds4(**kwargs):
 
 @register_model
 def InceptionTime_evt3_ds8(**kwargs):
-    """EVT3 + model-internal downsample×8 (faster)."""
+    """EVT3 + model-internal downsamplex8 (faster)."""
     model = InceptionTime1D(
         in_channels=3,
         num_classes=3,

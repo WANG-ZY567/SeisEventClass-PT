@@ -158,7 +158,7 @@ class LLM_Block(nn.Module):
             self.llm = GPT2.GPT2Model(GPT2.configuration_gpt2.GPT2Config())
         self.llm.h = self.llm.h[start_layer: end_layer]
 
-        # Random-init stack: no PEFT / no LoRA checkpoint shape — train full weights.
+        # Random-init stack: no PEFT / no LoRA checkpoint shape - train full weights.
         if self.freeze and self.pretrain:
             self.llm = get_peft_model(self.llm, self.lora_config)
             for name, param in self.llm.named_parameters():

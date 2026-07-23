@@ -87,7 +87,7 @@ class Metrics:
         """
         dist.barrier()
 
-        for k in self._data:
+        for k in self._value:
             self._data[k] = reduce_tensor(self._data[k])
 
         if isinstance(self._tgts, torch.Tensor):
@@ -232,9 +232,9 @@ class Metrics:
                 self._data["sum_res"] = (res * mask).type(torch.float32).mean(-1).sum()
 
             if "std" in self._metric_names:
-                if "sum_res" not in self._data:
+                if "sum_res" not in self._value:
                     self._data["sum_res"] = (res * mask).type(torch.float32).mean(-1).sum()
-                if "sum_squ_res" not in self._data:
+                if "sum_squ_res" not in self._value:
                     self._data["sum_squ_res"] = (
                         torch.pow(res * mask, 2).type(torch.float32).mean(-1).sum()
                     ) 
@@ -260,7 +260,7 @@ class Metrics:
 
             if "r2" in self._metric_names:
                 self._tgts = targets
-                if "sum_squ_res" not in self._data:
+                if "sum_squ_res" not in self._value:
                     self._data["sum_squ_res"] = (
                         torch.pow(res * mask, 2).type(torch.float32).mean(-1).sum()
                     )
@@ -279,7 +279,7 @@ class Metrics:
                 f"Mismatched data fields: `{set(self._data)}` and `{set(b._data)}`"
             )
 
-        for k in self._data:
+        for k in self._value:
             self._data[k] = self._data[k] + b._data[k]
 
         tgts_to_cat = list(
@@ -302,7 +302,7 @@ class Metrics:
             )
 
         c = copy.deepcopy(a)
-        for k in c._data:
+        for k in c._value:
             c._data[k] = a._data[k] + b._data[k]
 
         tgts_to_cat = list(

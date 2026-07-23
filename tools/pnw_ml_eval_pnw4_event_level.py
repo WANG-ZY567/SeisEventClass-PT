@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """
-PNW4 事件级评测（真值 4 类，预测 6 类）。
+PNW4 data(data 4 data, data 6 data). 
 
-- 事件键：默认使用 `dataset` + `pnw_event_id` 拼接，避免不同数据源 event_id 冲突。
-- 真值：event 内 `tgt_evt6` 取众数（mode）。
-- 预测：event 内 `pred_evt6` 取众数（mode）。
+- value: data `dataset` + `pnw_event_id` data, data event_id data. 
+- value: event data `tgt_evt6` data(mode). 
+- value: event data `pred_evt6` data(mode). 
 
-输出：
-- 事件级 4x6 contingency（true_pnw4 x pred_evt6）
-- eq/ep 子集事件准确率（true in {0,1} 且 pred==true）
+value: 
+- data 4x6 contingency(true_pnw4 x pred_evt6)
+- eq/ep data(true in {0,1} data pred==true)
 """
 from __future__ import annotations
 
@@ -79,7 +79,7 @@ def main() -> None:
         "n_events_used": total_events,
         "subset_event_accuracy_eq_ep_pred_matches_di_ting_eq_ep": acc_eq_ep,
         "n_subset_events_eq_ep": n_eq_ep,
-        "note_eq_ep": "仅 true_event in {0,1}；要求 pred_event 与 true_event 一致。",
+        "note_eq_ep": "data true_event in {0,1}; data pred_event data true_event data. ",
         "contingency_true_pnw4_by_pred_evt6_event_level": {
             "true_pnw4_labels": list(PNW4),
             "pred_evt6_labels": list(EVT6),
@@ -87,7 +87,7 @@ def main() -> None:
         },
         "row_normalized_4x6_event_level": row_norm,
         "support_per_true_pnw4_event_level": {PNW4[i]: row_sum[i] for i in range(4)},
-        "note": "PNW4 与 EVT6 语义不同；2/3 行为分布仅用于分析预测去向。",
+        "note": "PNW4 data EVT6 data; 2/3 data. ",
     }
     args.out_json.parent.mkdir(parents=True, exist_ok=True)
     args.out_json.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n")

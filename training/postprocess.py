@@ -289,7 +289,7 @@ class ResultSaver:
 
         return save_k, v
 
-    def append(self, batch_meta_data: dict,targets:dict, results: dict) -> None:
+    def append(self, batch_meta_value: dict,targets:dict, results: dict) -> None:
         """Append rows.
 
         Args:

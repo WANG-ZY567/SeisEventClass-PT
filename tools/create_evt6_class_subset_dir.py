@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 """
-从 EVT6 xapp picking subset 目录派生“按 evt6 类别过滤”的子目录。
+data EVT6 xapp picking subset data"data evt6 data"data. 
 
-用途：
-- Oracle-conditioned picking：每个 evt6 类分别训练一个 picker（只看该类样本）。
+value: 
+- Oracle-conditioned picking: data evt6 data picker(data). 
 
-输入：
-- src_dir：包含 meta_evt6_{train,val,test}.csv（含列：_evt6）
+value: 
+- src_dir: data meta_evt6_{train,val,test}.csv(value: _evt6)
 
-输出：
+value: 
 - dst_root/<class_name or id>/meta_evt6_{train,val,test}.csv
-- 同时链接 meta_evt6.csv 与 waves_non（若存在）
+- data meta_evt6.csv data waves_non(data)
 """
 
 from __future__ import annotations
@@ -48,7 +48,7 @@ def main() -> None:
     ap.add_argument(
         "--classes",
         default="0,1,2,3,4,5",
-        help="逗号分隔的 class id 列表（0-5），默认全类",
+        help="data class id data(0-5), data",
     )
     ap.add_argument("--link_mode", default="symlink", choices=["symlink", "copy"])
     args = ap.parse_args()

@@ -58,8 +58,8 @@ def get_copy_targets(targets: dict, event: dict, dataset: str):
 
 class DataPreprocessor:
     """
-    与训练/评测口径一致的预处理器（包含增强、裁窗、label 组织等）。
-    该实现直接从离线备份版本同步，保证与 validate.py / train.py 的 batch 结构一致。
+    data/data(data, data, label data). 
+    data, data validate.py / train.py data batch data. 
     """
 
     def __init__(
@@ -89,8 +89,8 @@ class DataPreprocessor:
         soft_label_width: int,
         dtype=np.float32,
     ):
-        # 为避免引入“自造实现细节”，此处保持与离线备份一致：完整逻辑较长，直接导入同文件的后续实现。
-        # NOTE: 下面的属性初始化仅用于满足后续方法引用；核心处理逻辑在本文件下方方法中实现。
+        # Open-source note: implementation detail.
+        # Open-source note: implementation detail.
         self.dataset_name = dataset_name.split("_")[0]
         self.sampling_rate = sampling_rate
         self.data_channels = data_channels
@@ -116,8 +116,8 @@ class DataPreprocessor:
         self.soft_label_width = soft_label_width
         self.dtype = dtype
 
-    # --- 由于篇幅原因：下方直接内联离线备份版的关键方法集（process / get_inputs / get_targets...） ---
-    # 为确保与既有训练/验证代码兼容，这里保留相同的方法签名与返回结构。
+    # Open-source note: implementation detail.
+    # Open-source note: implementation detail.
 
     def _clear_dict_except(self, d: dict, *args) -> None:
         if len(args) > 0:
@@ -149,10 +149,10 @@ class DataPreprocessor:
             pass
         return data
 
-    def _augment_waveform(self, data: np.ndarray) -> np.ndarray:
+    def _augment_waveform(self, value: np.ndarray) -> np.ndarray:
         """
-        训练增强：在归一化之前作用于 [C, L] 波形。
-        与 SeismicDataset 中「后半段 idx 使用 augmentation=True」对齐；若此处为空则等价于样本重复一遍。
+        value: data [C, L] data. 
+        data SeismicDataset data"data idx data augmentation=True"data; data. 
         """
         rng = np.random.default_rng()
         data = np.asarray(data, dtype=self.dtype)
@@ -246,7 +246,7 @@ class DataPreprocessor:
         return heat
 
     def process(self, event: dict, augmentation: bool = False) -> dict:
-        # EVT 任务的数据窗已由 tools/prepare_diting2_evt6.py 裁好；增强在归一化之前完成。
+        # Open-source note: implementation detail.
         if "data" in event and isinstance(event["data"], np.ndarray):
             event["data"] = event["data"].astype(self.dtype)
             if event["data"].ndim == 2:

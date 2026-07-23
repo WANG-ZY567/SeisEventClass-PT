@@ -1,19 +1,19 @@
 #!/usr/bin/env python3
 """
-DiTing2.0 事件类型（evtype）6类分类数据准备脚本
+DiTing2.0 data(evtype)6text
 
-目标：
-- 生成一个 meta_evt6.csv，用于 6 类分类任务（evt6: eq/ep/ss/sp/se/ot -> 0..5）
-- 自然地震部分：复用你已经生成的 Full5 波形（diting2_seismollm_full5/waves/*.npy），避免重新预处理百万级数据
-- 非自然地震部分：从 non_natural 的 HDF5+JSON 裁窗生成 waves，并写入 meta
+value: 
+- data meta_evt6.csv, data 6 data(evt6: eq/ep/ss/sp/se/ot -> 0..5)
+- value: data Full5 data(diting2_seismollm_full5/waves/*.npy), data
+- value: data non_natural data HDF5+JSON data waves, data meta
 
-说明：
-- 该脚本不会去处理 natural JSON 全量（1,089,920），否则磁盘会爆炸。
-- 默认：自然地震取 Full5 的 209,252 条；非自然取全部 15,375 条（或用 --max_non 限制）。
+value: 
+- data natural JSON data(1,089,920), data. 
+- value: data Full5 data 209,252 data; data 15,375 data(data --max_non data). 
 
-输出：
+value: 
 - out_dir/meta_evt6.csv
-- out_dir/waves_non/*.npy（非自然地震的波形）
+- out_dir/waves_non/*.npy(data)
 """
 
 import argparse
@@ -28,10 +28,10 @@ import pandas as pd
 from tqdm import tqdm
 
 
-# 说明：
-# - 你提到的“CO(坍塌)”在一些论文里用 `co` 表示，但在 DiTing2.0 的 evtype 编码里并没有 `co`，
-#   而是用 `ss`（其样本量在 non-natural JSON 中恰好为 5311，与很多论文的 CO=5311 对齐）。
-# - 因此这里把 `co` 作为 `ss` 的别名，统一映射到同一个类别 id=2。
+# Open-source note: implementation detail.
+# Open-source note: implementation detail.
+# Open-source note: implementation detail.
+# Open-source note: implementation detail.
 EVT6_MAP = {
     "eq": 0,
     "ep": 1,
@@ -47,14 +47,14 @@ def norm_evtype(x) -> str:
     if x is None:
         return ""
     s = str(x).strip().lower()
-    # 去掉可能的前导空格/奇怪字符
+    # Open-source note: implementation detail.
     s = s.replace("\u3000", "").strip()
     return s
 
 
 def crop_with_anchor(x_c_l, x, L_out=8192):
     """
-    以指定位置为锚点裁剪波形，不足部分用 0 填充。
+    data, data 0 data. 
     x: (3, L)
     """
     c_l = int(x_c_l)
@@ -74,14 +74,14 @@ def crop_with_anchor(x_c_l, x, L_out=8192):
 
 def main():
     ap = argparse.ArgumentParser(description="Prepare DiTing2.0 evt6 classification dataset")
-    ap.add_argument("--out_dir", required=True, help="输出目录（写 meta_evt6.csv 与 waves_non/）")
+    ap.add_argument("--out_dir", required=True, help="data(data meta_evt6.csv data waves_non/)")
     ap.add_argument(
         "--add_xapp_meta",
         action="store_true",
         help=(
-            "在 meta_evt6*.csv 中额外写入跨应用实验所需字段："
-            "event_id_raw/station_id_raw/src_domain/event_uid/station_uid/trace_uid，"
-            "以及 picking/震源相关字段（尽可能从 full5 meta 或 DiTing JSON 补齐）。"
+            "data meta_evt6*.csv value: "
+            "event_id_raw/station_id_raw/src_domain/event_uid/station_uid/trace_uid, "
+            "data picking/data(data full5 meta data DiTing JSON data). "
         ),
     )
 
@@ -89,15 +89,15 @@ def main():
     ap.add_argument(
         "--natural_full5_dir",
         default="/path/to/diting2_preprocessed",
-        help="已生成的 Full5 目录（包含 meta_full5.csv 与 waves/）",
+        help="data Full5 data(data meta_full5.csv data waves/)",
     )
     ap.add_argument(
         "--natural_json",
         default="/path/to/CENC_DiTingv2_natural_earthquake.json",
-        help="natural JSON（用于提供 evtype）",
+        help="natural JSON(data evtype)",
     )
-    ap.add_argument("--max_nat", type=int, default=0, help="最多使用多少条 natural（0=全用 full5）")
-    ap.add_argument("--max_eq", type=int, default=0, help="natural 中最多保留多少条 eq（0=不限制，用于缓解类别不均衡）")
+    ap.add_argument("--max_nat", type=int, default=0, help="data natural(0=data full5)")
+    ap.add_argument("--max_eq", type=int, default=0, help="natural data eq(0=data, data)")
 
     # non-natural: preprocess
     ap.add_argument(
@@ -108,9 +108,9 @@ def main():
     ap.add_argument(
         "--non_json",
         default="/path/to/CENC_DiTingv2_non_natural_earthquake.json",
-        help="non-natural JSON（包含 evtype）",
+        help="non-natural JSON(data evtype)",
     )
-    ap.add_argument("--max_non", type=int, default=0, help="最多处理多少条 non-natural（0=全部）")
+    ap.add_argument("--max_non", type=int, default=0, help="data non-natural(0=data)")
 
     # crop settings
     ap.add_argument("--in_samples", type=int, default=8192)
@@ -124,10 +124,10 @@ def main():
         default="none",
         choices=["none", "down", "up", "hybrid"],
         help=(
-            "类别均衡策略："
-            "none=不处理；down=对多类下采样到 target；"
-            "up=对少类过采样到 target；"
-            "hybrid=多类下采样+少类过采样到同一 target。"
+            "value: "
+            "none=data; down=data target; "
+            "up=data target; "
+            "hybrid=data+data target. "
         ),
     )
     ap.add_argument(
@@ -135,11 +135,11 @@ def main():
         type=int,
         default=0,
         help=(
-            "均衡目标：每个类别最终样本数。0=自动（取 6 类计数的中位数）。"
-            "注意：se 类通常最少，若 target 很大将导致大量重复采样。"
+            "value: data. 0=data(data 6 data). "
+            "value: se data, data target data. "
         ),
     )
-    ap.add_argument("--seed", type=int, default=0, help="抽样随机种子")
+    ap.add_argument("--seed", type=int, default=0, help="data")
 
     # strict split settings (for fair comparison with other papers that use fixed per-class counts)
     ap.add_argument(
@@ -147,35 +147,35 @@ def main():
         default="ratio",
         choices=["ratio", "strict"],
         help=(
-            "数据划分方式："
-            "ratio=保持现状（由 Dataset 内部 shuffle 后按 0.8/0.1/0.1 切分）；"
-            "strict=严格按每个类别固定数量划分，并输出 meta_evt6_{train,val,test}.csv。"
+            "value: "
+            "ratio=data(data Dataset data shuffle data 0.8/0.1/0.1 data); "
+            "strict=data, data meta_evt6_{train,val,test}.csv. "
         ),
     )
     ap.add_argument(
         "--train_per_class",
         type=int,
         default=0,
-        help="strict 模式：每类训练样本数（0=自动=target_per_class - val_per_class - test_per_class）",
+        help="strict value: data(0=data=target_per_class - val_per_class - test_per_class)",
     )
     ap.add_argument(
         "--val_per_class",
         type=int,
         default=300,
-        help="strict 模式：每类验证样本数（默认 300，便于对齐常见论文的固定验证规模）",
+        help="strict value: data(data 300, data)",
     )
     ap.add_argument(
         "--test_per_class",
         type=int,
         default=300,
-        help="strict 模式：每类测试样本数（默认 300；本项目训练/测试流程需要单独 test 集）",
+        help="strict value: data(data 300; data/data test data)",
     )
     ap.add_argument(
         "--test_from_val",
         action="store_true",
         help=(
-            "对齐某些论文口径：没有独立测试集，把验证集当测试集。"
-            "启用后会写出 meta_evt6_test.csv == meta_evt6_val.csv，并在记录文件中注明。"
+            "value: data, data. "
+            "data meta_evt6_test.csv == meta_evt6_val.csv, data. "
         ),
     )
 
@@ -185,13 +185,13 @@ def main():
         default="none",
         choices=["none", "paper_eq_ep_co"],
         help=(
-            "配额模式："
-            "none=不做配额；"
-            "paper_eq_ep_co=对齐论文总量：EQ=7078, EP=5613, CO=5311(对应 ss)，"
-            "其它类(sp/se/ot)不够则全用，不进行重复过采样。"
+            "value: "
+            "none=data; "
+            "paper_eq_ep_co=value: EQ=7078, EP=5613, CO=5311(data ss), "
+            "data(sp/se/ot)data, data. "
         ),
     )
-    ap.add_argument("--quota_seed", type=int, default=100, help="配额抽样随机种子（与 --seed 分开，便于记录）")
+    ap.add_argument("--quota_seed", type=int, default=100, help="data(data --seed data, data)")
 
     args = ap.parse_args()
 
@@ -243,7 +243,7 @@ def main():
             return ""
         return norm_evtype(v.get("evtype"))
 
-    # 先提取 raw evtype，再规范化成最终 `_evtype`
+    # Open-source note: implementation detail.
     nat_df["_evtype_raw"] = nat_df["key"].astype(str).apply(get_evtype_from_json)
     nat_df["_evtype"] = nat_df["_evtype_raw"].apply(norm_evtype)
     # map to evt6 (unknown -> ot)
@@ -434,9 +434,9 @@ def main():
     nat_df = nat_df.copy()
     nat_df["key"] = nat_df["key"].astype(str).apply(lambda k: f"nat_{k}")
     nat_df["_rid"] = nat_df["key"].astype(str).str.replace("^nat_", "", regex=True)
-    # 删除中间字段，避免列名冲突
+    # Open-source note: implementation detail.
     if "_evtype_raw" in nat_df.columns:
-        # 保留 `_evtype`（规范化后的）
+        # Open-source note: implementation detail.
         pass
 
     base_cols = ["key", "part", "_src", "_rid", "_evtype", "_evt6", "_npy_path"]
@@ -492,7 +492,7 @@ def main():
     }
     if quota_mode != "none":
         rngq = np.random.default_rng(int(args.quota_seed))
-        # paper: CO(坍塌)=ss=class 2
+        # Open-source note: implementation detail.
         # request totals; other classes use all available (no downsample unless you set it later)
         requested = {0: 7078, 1: 5613, 2: 5311}
         quota_record["requested"] = requested
@@ -536,7 +536,7 @@ def main():
         # ensure 0..5 all appear in counts; if not, they can't be balanced without new data
         missing_cls = [c for c in range(6) if c not in set(cls_list)]
         if missing_cls:
-            print(f"[WARN] 缺少类别 {missing_cls}，无法真正均衡；请检查数据源是否包含这些类。")
+            print(f"[WARN] data {missing_cls}, data; data. ")
 
         if int(args.target_per_class) > 0:
             target = int(args.target_per_class)
@@ -600,26 +600,26 @@ def main():
             if n == 0:
                 continue
 
-            # 若该类样本足够：优先使用固定 val/test；train 用“剩余”或用户指定的 train_n（取其可行上限）
+            # Open-source note: implementation detail.
             if n >= (val_n + test_n + 1):
                 v = val_n
                 t = test_n
                 remain = n - v - t
                 tr = remain if train_n is None else min(train_n, remain)
             else:
-                # 小类：按比例 0.1/0.1 切分（全用不丢，且尽量保留足够 train）
+                # Open-source note: implementation detail.
                 v = int(round(0.1 * n))
                 t = int(round(0.1 * n))
-                # 至少留 1 个训练样本
+                # Open-source note: implementation detail.
                 if v + t >= n:
                     v = max(0, n - 1)
                     t = 0
                 tr = n - v - t
-                # 若用户强制 train_n，则最多也只能用 tr（不丢样本时，train_n 只是上限）
+                # Open-source note: implementation detail.
                 if train_n is not None:
                     tr = min(tr, train_n)
-                    # 把多出来的“训练上限”样本留在 train 外会丢数据，违背“全用不丢”
-                    # 因此这里对小类忽略 train_n，下方会用 tr=全剩余
+                    # Open-source note: implementation detail.
+                    # Open-source note: implementation detail.
                     tr = n - v - t
 
             idx = sub.index.to_numpy()
@@ -678,7 +678,7 @@ def main():
         print(f"[WARN] failed to write selection record: {e}")
 
     print("=" * 60)
-    print("evt6 数据集准备完成")
+    print("evt6 data")
     print(f"meta: {out_csv}")
     print(f"rows: {len(merged)} (nat={len(nat_df)}, non={len(non_df)})")
     print("evt6 mapping:", EVT6_MAP)

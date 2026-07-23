@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 """
-ComCat external zero-shot：读取 `test_results_*_test.csv`（含 pred_evt6, tgt_evt6），
-在「ComCat 二分类语义」下评估：
+ComCat external zero-shot: data `test_results_*_test.csv`(data pred_evt6, tgt_evt6), 
+data"ComCat data"value: 
 
-  - 真值：tgt_evt6 ∈ {0,1}（earthquake=0, explosion=1），由 prepare_comcat 脚本写入 meta。
+  - value: tgt_evt6 in {0,1}(earthquake=0, explosion=1), data prepare_comcat data meta. 
 
-  - **子集口径**：仅 pred_evt6∈{0,1} 计入 binary_accuracy / F1；pred_other 单独统计。
+  - **data**: data pred_evt6in{0,1} data binary_accuracy / F1; pred_other data. 
 
-  - **全样本严格口径**（顶层 strict_*）：分母 = 全部行；正确 iff pred_evt6==tgt_evt6；
-    pred 为 2..5 记错；F1 将其它类预测计入 FN。
+  - **data**(data strict_*): data = data; data iff pred_evt6==tgt_evt6; 
+    pred data 2..5 data; F1 data FN. 
 
-输出：JSON 报告到 --out_json（保留原扁平字段名以兼容旧脚本/文档）。
+value: JSON data --out_json(data/data). 
 """
 from __future__ import annotations
 
@@ -91,11 +91,11 @@ def main() -> None:
         "binary_accuracy_on_strict_subset": acc,
         "per_class_f1_eq0_expl1": {"eq_f1": f1_eq, "ep_f1": f1_ep},
         "macro_f1_binary": macro_f1,
-        "note": "仅 pred_evt6∈{0,1} 的样本计入 binary_accuracy / macro_f1；其余类单独统计 pred_other。",
+        "note": "data pred_evt6in{0,1} data binary_accuracy / macro_f1; data pred_other. ",
         "strict_binary_accuracy_all_rows": strict_acc,
         "strict_per_class_f1_eq0_expl1": {"eq_f1": f1_eq_s, "ep_f1": f1_ep_s},
         "strict_macro_f1_binary": macro_f1_s,
-        "strict_note": "全行分母 n_rows；pred_evt6 必须等于 tgt_evt6；pred 为 2..5 记错。",
+        "strict_note": "data n_rows; pred_evt6 data tgt_evt6; pred data 2..5 data. ",
     }
     args.out_json.parent.mkdir(parents=True, exist_ok=True)
     args.out_json.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n")

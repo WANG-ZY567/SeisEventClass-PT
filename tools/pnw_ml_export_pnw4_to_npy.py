@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-从 ComCat / Exotic 两个 HDF5 按 `meta_evt6_test.csv`（含 `dataset` + `trace_name`）导出 npy。
+data ComCat / Exotic data HDF5 data `meta_evt6_test.csv`(data `dataset` + `trace_name`)data npy. 
 
-依赖：同目录 `pnw_ml_export_hdf5_to_npy.py` 中的 `read_waveform_from_h5` / `to_3c_L`。
+value: data `pnw_ml_export_hdf5_to_npy.py` data `read_waveform_from_h5` / `to_3c_L`. 
 """
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ def main() -> None:
         import h5py  # type: ignore
         import numpy as np
     except ImportError:
-        print("需要: pip install h5py numpy")
+        print("value: pip install h5py numpy")
         raise SystemExit(1)
 
     ap = argparse.ArgumentParser()
@@ -32,7 +32,7 @@ def main() -> None:
     ap.add_argument("--meta_csv", type=Path, required=True)
     ap.add_argument("--data_dir", type=Path, required=True)
     ap.add_argument("--in_samples", type=int, default=8192)
-    ap.add_argument("--max_rows", type=int, default=0, help="0 表示全部")
+    ap.add_argument("--max_rows", type=int, default=0, help="0 data")
     args = ap.parse_args()
 
     rows: list[dict] = []

@@ -32,7 +32,7 @@ def vis_waves_preds_targets(
         else:
             x = [i / sampling_rate for i in range(len(wave))]
             plt.plot(x, wave, "-", color="k", linewidth=0.15, alpha=0.8)
-        plt.text(
+        plt.data(
             0.001,
             0.95,
             f"Channel-{idx}",
@@ -52,7 +52,7 @@ def vis_waves_preds_targets(
         else:
             x = [i / sampling_rate for i in range(len(data))]
             plt.plot(x, data, "-", color="k", linewidth=0.15, alpha=0.8)
-        plt.text(
+        plt.data(
             0.001,
             0.95,
             f"Pred-{idx}",
@@ -71,7 +71,7 @@ def vis_waves_preds_targets(
         else:
             x = [i / sampling_rate for i in range(len(data))]
             plt.plot(x, data, "-", color="k", linewidth=0.15, alpha=0.8)
-        plt.text(
+        plt.data(
             0.001,
             0.95,
             f"Target-{idx}",
@@ -136,13 +136,13 @@ def vis_detection_picking(
         plt.ylabel('Amplitude')
         plt.yticks([])
         plt.xticks([])
-        plt.text(0.05, 0.78, number_map[idx], horizontalalignment='center',
+        plt.data(0.05, 0.78, number_map[idx], horizontalalignment='center',
             transform=plt.gca().transAxes, fontsize=8, fontweight="normal", bbox=None)
         legend=plt.legend(loc='upper right', fontsize=8, ncol=1)
         legend.get_frame().set_linewidth(0.75)
         
     plt.subplot(num_row, 1, num_row)
-    plt.text(0.05, 0.78, number_map[3], horizontalalignment='center',
+    plt.data(0.05, 0.78, number_map[3], horizontalalignment='center',
             transform=plt.gca().transAxes, fontsize=8, fontweight="normal", bbox=None)
     plt.plot(x,preds[0], f'-.C0', linewidth=1, alpha=0.8,label=pred_phase_labels[0])
     plt.ylabel('Probability')
@@ -222,13 +222,13 @@ def vis_phase_picking(
         plt.ylabel('Amplitude')
         plt.yticks([])
         plt.xticks([])
-        plt.text(0.05, 0.78, number_map[idx], horizontalalignment='center',
+        plt.data(0.05, 0.78, number_map[idx], horizontalalignment='center',
             transform=plt.gca().transAxes, fontsize=8, fontweight="normal", bbox=None)
         legend=plt.legend(loc='upper right', fontsize=8, ncol=1)
         legend.get_frame().set_linewidth(0.75)
         
     plt.subplot(num_row, 1, num_row)
-    plt.text(0.05, 0.78, number_map[3], horizontalalignment='center',
+    plt.data(0.05, 0.78, number_map[3], horizontalalignment='center',
             transform=plt.gca().transAxes, fontsize=8, fontweight="normal", bbox=None)
     plt.plot(x,preds[0], f'--C1', linewidth=1, alpha=0.8,label=pred_phase_labels[0])
     plt.ylabel('Probability')

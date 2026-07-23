@@ -1,15 +1,15 @@
 """
-DiTing2.0 事件类型 6 类分类数据集适配器
+DiTing2.0 data 6 data
 
 evtype -> class id (evt6):
   eq -> 0
   ep -> 1
-  co/ss -> 2   (CO=坍塌；在 DiTing2.0 的 evtype 编码中通常写成 ss)
+  co/ss -> 2   (CO=data; data DiTing2.0 data evtype data ss)
   sp -> 3
   se -> 4
   ot -> 5
 
-该数据集读取 tools/prepare_diting2_evt6.py 生成的 meta_evt6.csv + waves/*.npy。
+data tools/prepare_diting2_evt6.py data meta_evt6.csv + waves/*.npy. 
 """
 
 from .base import DatasetBase
@@ -55,15 +55,15 @@ class DiTing2Evt6(DatasetBase):
         )
 
     def _load_meta_data(self, filename=None) -> pd.DataFrame:
-        # 优先读取严格划分文件（若存在）
+        # Open-source note: implementation detail.
         # - meta_evt6_train.csv / meta_evt6_val.csv / meta_evt6_test.csv
-        # 否则回退到 meta_evt6.csv，并按旧逻辑用 0.8/0.1/0.1 切分
+        # Open-source note: implementation detail.
         if filename is None:
             strict_name = f"meta_evt6_{self._mode}.csv"
             strict_path = os.path.join(self._data_dir, strict_name)
             if os.path.exists(strict_path):
                 filename = strict_name
-                # 使用严格划分文件时，不再执行 ratio split
+                # Open-source note: implementation detail.
                 use_ratio_split = False
             else:
                 filename = "meta_evt6.csv"
@@ -72,11 +72,11 @@ class DiTing2Evt6(DatasetBase):
             use_ratio_split = filename == "meta_evt6.csv"
 
         csv_path = os.path.join(self._data_dir, filename)
-        logger.info(f"加载元数据：{csv_path}")
+        logger.info(f"[DiTing2Evt6] Loading metavalue: {csv_path}")
 
         meta_df = pd.read_csv(csv_path, low_memory=False)
 
-        # 清理空格
+        # Open-source note: implementation detail.
         for k in meta_df.columns:
             if meta_df[k].dtype in [object, np.object_, "object", "O"]:
                 meta_df[k] = meta_df[k].astype(str).str.replace(" ", "")
@@ -123,10 +123,10 @@ class DiTing2Evt6(DatasetBase):
     def _load_event_data(self, idx: int) -> Tuple[dict, dict]:
         def _load_npy_with_retry(path: str) -> np.ndarray:
             """
-            共享盘/NFS 在多进程 DataLoader 下可能出现“瞬时 ENOENT/IO 抖动”（文件实际存在但 open 返回找不到/IO 错）。
-            这里做更强的重试（同时捕获 FileNotFoundError 与 OSError），避免训练中途崩溃。
+            data/NFS data DataLoader data"data ENOENT/IO data"(data open data/IO data). 
+            data(data FileNotFoundError data OSError), data. 
             """
-            # 总等待约 0.2+0.5+1+2+4+8+13+21+34 ~= 83.7s
+            # Open-source note: implementation detail.
             sleeps = [0.2, 0.5, 1.0, 2.0, 4.0, 8.0, 13.0, 21.0, 34.0]
             last_err: Exception | None = None
             for attempt, sleep_s in enumerate(sleeps, start=1):
@@ -140,8 +140,8 @@ class DiTing2Evt6(DatasetBase):
             assert last_err is not None
             raise last_err
 
-        # 容错策略：若当前样本文件损坏/缺失，顺序尝试后续样本，直到取到可用样本。
-        # 这样可避免训练被少量坏样本直接打断。
+        # Open-source note: implementation detail.
+        # Open-source note: implementation detail.
         n = len(self._meta_data)
         assert n > 0, "Empty metadata in DiTing2Evt6."
         start = int(idx) % n

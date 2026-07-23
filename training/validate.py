@@ -124,7 +124,7 @@ def validate(
         )
 
     def _maybe_label_smooth(loss_tgts):
-        """对 onehot 分类任务做 label smoothing（只影响 loss）。"""
+        """Open-source note: implementation detail."""
         eps = float(getattr(args, "label_smoothing", 0.0) or 0.0)
         if eps <= 0:
             return loss_tgts

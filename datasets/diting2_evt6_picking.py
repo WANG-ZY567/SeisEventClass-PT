@@ -1,14 +1,14 @@
 """
-DiTing2.0 EVT6 xapp picking 子集适配器：
+DiTing2.0 EVT6 xapp picking value: 
 
-用于把 `meta_evt6_{train,val,test}.csv`（含裁窗对齐后的 p_pick/s_pick）喂给 picking 模型（SeisMoLLM_dpk）。
+data `meta_evt6_{train,val,test}.csv`(data p_pick/s_pick)data picking data(SeisMoLLM_dpk). 
 
-关键约定：
-- 输入波形：`_npy_path` 指向裁窗后的 (3, 8192) npy
-- P/S 到时：使用 `p_pick`/`s_pick`（已经是裁窗坐标系，单位=sample）
-- 输出 event dict 需要包含：
-  - data: np.ndarray (3, in_samples)
-  - ppks: List[int]（SeisT/SeisMoLLM picking 口径）
+value: 
+- value: `_npy_path` data (3, 8192) npy
+- P/S value: data `p_pick`/`s_pick`(data, data=sample)
+- data event dict value: 
+  - value: np.ndarray (3, in_samples)
+  - ppks: List[int](SeisT/SeisMoLLM picking data)
   - spks: List[int]
 """
 
@@ -77,7 +77,7 @@ class DiTing2Evt6Picking(DatasetBase):
         )
 
     def _load_meta_data(self, filename=None) -> pd.DataFrame:
-        # 对齐 EVT6 的 strict split 命名
+        # Open-source note: implementation detail.
         if filename is None:
             strict_name = f"meta_evt6_{self._mode}.csv"
             strict_path = os.path.join(self._data_dir, strict_name)
@@ -91,10 +91,10 @@ class DiTing2Evt6Picking(DatasetBase):
             use_ratio_split = filename == "meta_evt6.csv"
 
         csv_path = os.path.join(self._data_dir, filename)
-        logger.info(f"[DiTing2Evt6Picking] 加载元数据：{csv_path}")
+        logger.info(f"[DiTing2Evt6Picking] Loading metavalue: {csv_path}")
         meta_df = pd.read_csv(csv_path, low_memory=False)
 
-        # 清理空格
+        # Open-source note: implementation detail.
         for k in meta_df.columns:
             if meta_df[k].dtype in [object, np.object_, "object", "O"]:
                 meta_df[k] = meta_df[k].astype(str).str.replace(" ", "")
@@ -104,7 +104,7 @@ class DiTing2Evt6Picking(DatasetBase):
             meta_df = meta_df.sample(frac=1, replace=False, random_state=self._seed)
         meta_df.reset_index(drop=True, inplace=True)
 
-        # ratio split（仅对 meta_evt6.csv 生效）
+        # Open-source note: implementation detail.
         if use_ratio_split and self._data_split:
             irange = {}
             irange["train"] = [0, int(self._train_size * meta_df.shape[0])]
@@ -119,7 +119,7 @@ class DiTing2Evt6Picking(DatasetBase):
 
         # drop missing npy
         if "_npy_path" not in meta_df.columns:
-            raise KeyError("[DiTing2Evt6Picking] meta 缺少列：_npy_path")
+            raise KeyError("[DiTing2Evt6Picking] Metadata must contain _npy_path.")
 
         def _abs_npy(p):
             if not isinstance(p, str):
@@ -172,7 +172,7 @@ class DiTing2Evt6Picking(DatasetBase):
             "data": data,
             "ppks": ppks,
             "spks": spks,
-            # 兼容部分可选目标（不用也没事）
+            # Open-source note: implementation detail.
             "snr": np.array([10.0, 10.0, 10.0], dtype=np.float32),
         }
         return event, target.to_dict()

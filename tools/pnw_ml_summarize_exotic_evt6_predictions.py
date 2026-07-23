@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Exotic case study：合并 `meta_evt6_test.csv`（含 pnw_source_type）与 `test_results_*.csv`（含 pred_evt6），
-按 source_type 统计 pred_evt6 直方图与占比。
+Exotic case study: data `meta_evt6_test.csv`(data pnw_source_type)data `test_results_*.csv`(data pred_evt6), 
+data source_type data pred_evt6 data. 
 
-若 test_results 无 pnw_source_type，可用 --meta_csv join key=key。
+data test_results data pnw_source_type, data --meta_csv join key=key. 
 """
 from __future__ import annotations
 
@@ -27,7 +27,7 @@ def load_meta_map(path: Path) -> dict[str, str]:
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--results_csv", type=Path, required=True)
-    ap.add_argument("--meta_csv", type=Path, default=None, help="含 key 与 pnw_source_type")
+    ap.add_argument("--meta_csv", type=Path, default=None, help="data key data pnw_source_type")
     ap.add_argument("--out_json", type=Path, required=True)
     args = ap.parse_args()
 

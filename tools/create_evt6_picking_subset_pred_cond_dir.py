@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-根据 evt6 路由分类器，对 picking subset 的 meta 写入伪标签：
-  - 生成 pred column（如 pred_evt6_hier_sp / pred_evt6_multihead_w01）
-  - 保留 waves_non/ 目录结构
-  - 输出到一个新的 picking subset 目录（避免覆盖原数据）
+data evt6 data, data picking subset data meta value: 
+  - data pred column(data pred_evt6_hier_sp / pred_evt6_multihead_w01)
+  - data waves_non/ data
+  - data picking subset data(data)
 
-该脚本用于“Predicted-conditioned phase picking”实验：
-训练 dpk_cond 时，evt6_cond 来自该 pred column。
+data"Predicted-conditioned phase picking"value: 
+data dpk_cond data, evt6_cond data pred column. 
 """
 
 from __future__ import annotations
@@ -45,7 +45,7 @@ def _get_evt6_output(outputs, model_labels: List[str]) -> torch.Tensor:
     """
     if isinstance(outputs, (tuple, list)):
         if "evt6" not in model_labels:
-            raise KeyError(f"router model labels缺少 evt6: {model_labels}")
+            raise KeyError(f"router model labelstext evt6: {model_labels}")
         idx = model_labels.index("evt6")
         return outputs[idx]
     # Some models might output only evt6 prob.
@@ -246,12 +246,12 @@ def main() -> None:
             raise FileNotFoundError(meta_path)
         df = pd.read_csv(meta_path, low_memory=False)
         if "trace_uid" not in df.columns:
-            raise KeyError(f"{meta_path} 缺少 trace_uid 列，无法写入 {args.pred_col}")
+            raise KeyError(f"{meta_path} data trace_uid data, data {args.pred_col}")
 
         df[args.pred_col] = df["trace_uid"].map(pred_map).astype("Int64")
         missing = int(df[args.pred_col].isna().sum())
         if missing:
-            raise RuntimeError(f"pred_map 未覆盖 {missing} 条样本（split={split}）。请检查 join key=trace_uid 是否一致。")
+            raise RuntimeError(f"pred_map data {missing} data(split={split}). data join key=trace_uid data. ")
 
         out_meta_path = os.path.join(dst_dir, f"meta_evt6_{split}.csv")
         df.to_csv(out_meta_path, index=False)

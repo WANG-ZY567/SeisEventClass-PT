@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 """
-ComCat + Exotic：生成 4 类 trace 级 manifest（扩展实验）。
+ComCat + Exotic: data 4 data trace data manifest(data). 
 
-类别定义（方案 B，推荐）：
+data(data B, data): 
   0 earthquake   <- ComCat source_type==earthquake
   1 explosion    <- ComCat source_type==explosion
   2 surface_event <- Exotic source_type==surface event
   3 other_exotic  <- Exotic: sonic boom + thunder + plane crash
 
-说明：
-  - Exotic 无震源经纬度；若要做「与 ComCat 一致的 region split」，可用 station 坐标近似，
-    或仅将 Exotic 作为「类型扩展」子集，在单独协议中报告（见主文档）。
+value: 
+  - Exotic data; data"data ComCat data region split", data station data, 
+    data Exotic data"data"data, data(data). 
 """
 from __future__ import annotations
 

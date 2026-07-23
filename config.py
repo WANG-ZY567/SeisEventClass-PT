@@ -22,7 +22,7 @@ from models import (
 
 class Config:
     """
-    该文件以 `logs/*/global.log` 中打印出的 `Configs:` 为口径，提供训练/测试所需的最小配置接口：
+    data `logs/*/global.log` data `Configs:` data, data/value: 
     - model registry -> loss / inputs / labels / eval / transforms
     - IO item metadata -> type / metrics / num_classes
     """

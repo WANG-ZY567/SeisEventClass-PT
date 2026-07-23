@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-从 test_results_*.csv 生成 evt5（剔除 se）分类结果报告：
+data test_results_*.csv data evt5(data se)value: 
 - Overall Accuracy
-- 每类别 Precision / Recall / F1
+- data Precision / Recall / F1
 - Macro-F1
-- 混淆矩阵（csv + Markdown 表格）
+- data(csv + Markdown data)
 
-要求 CSV 至少包含列：pred_evt5, tgt_evt5（整数类别 id）
+metadata CSV value: pred_evt5, tgt_evt5(data id)
 """
 
 import argparse
@@ -19,7 +19,7 @@ import numpy as np
 import pandas as pd
 
 
-# evt5 定义：0 eq,1 ep,2 co,3 sp,4 ot
+# Open-source note: implementation detail.
 ID2NAME: Dict[int, str] = {0: "eq", 1: "ep", 2: "co", 3: "sp", 4: "ot"}
 
 
@@ -34,7 +34,7 @@ def _find_default_results_csv(run_dir: str) -> str:
         reverse=True,
     )
     if not cands:
-        raise FileNotFoundError(f"在 run_dir 未找到 test_results_*.csv：{run_dir}")
+        raise FileNotFoundError(f"data run_dir data test_results_*.csv: {run_dir}")
     return cands[0]
 
 
@@ -83,9 +83,9 @@ def _cm_to_markdown(cm: np.ndarray, names: List[str]) -> str:
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--run_dir", default="", help="reports/<timestamp>_<model>_<dataset> 目录；留空则必须提供 --results_csv")
-    ap.add_argument("--results_csv", default="", help="test_results_*.csv 路径（优先于 --run_dir 自动探测）")
-    ap.add_argument("--out_md", default="", help="输出 Markdown 路径；默认写入 run_dir/EVT5_TEST_REPORT.md")
+    ap.add_argument("--run_dir", default="", help="reports/<timestamp>_<model>_<dataset> data; data --results_csv")
+    ap.add_argument("--results_csv", default="", help="test_results_*.csv data(data --run_dir data)")
+    ap.add_argument("--out_md", default="", help="data Markdown data; data run_dir/EVT5_TEST_REPORT.md")
     args = ap.parse_args()
 
     run_dir = os.path.abspath(args.run_dir) if args.run_dir else ""
@@ -99,12 +99,12 @@ def main():
             run_dir = os.path.dirname(csv_path)
     else:
         if not run_dir:
-            raise ValueError("请提供 --results_csv 或 --run_dir")
+            raise ValueError("data --results_csv data --run_dir")
         csv_path = _find_default_results_csv(run_dir)
 
     df = pd.read_csv(csv_path, low_memory=False)
     if "tgt_evt5" not in df.columns or "pred_evt5" not in df.columns:
-        raise KeyError(f"CSV 缺少列：需要 tgt_evt5/pred_evt5，实际列={list(df.columns)}")
+        raise KeyError(f"CSV value: data tgt_evt5/pred_evt5, data={list(df.columns)}")
 
     y_true = df["tgt_evt5"].astype(int).to_numpy()
     y_pred = df["pred_evt5"].astype(int).to_numpy()
@@ -121,26 +121,26 @@ def main():
     pd.DataFrame(cm, index=[f"true_{n}" for n in names], columns=[f"pred_{n}" for n in names]).to_csv(cm_csv)
 
     lines = []
-    lines.append("# EVT5 分类测试报告（exclude se；Accuracy / Macro-F1 / Confusion Matrix）\n\n")
-    lines.append(f"- 生成时间：{now}\n")
-    lines.append(f"- 输入结果：`{csv_path}`\n")
-    lines.append(f"- 输出报告：`{out_md}`\n")
-    lines.append(f"- 混淆矩阵 CSV：`{cm_csv}`\n")
+    lines.append("# EVT5 Test Report\n\n")
+    lines.append(f"- value: {now}\n")
+    lines.append(f"- value: `{csv_path}`\n")
+    lines.append(f"- value: `{out_md}`\n")
+    lines.append(f"- metadata CSV: `{cm_csv}`\n")
     lines.append("\n---\n\n")
 
-    lines.append("## 1. Overall 指标\n\n")
-    lines.append(f"- **Accuracy**：{acc:.4f}\n")
-    lines.append(f"- **Macro-F1**：{macro_f1:.4f}\n")
+    lines.append("## Overall metrics\n\n")
+    lines.append(f"- **Accuracy**: {acc:.4f}\n")
+    lines.append(f"- **Macro-F1**: {macro_f1:.4f}\n")
     lines.append("\n---\n\n")
 
-    lines.append("## 2. 各类别指标\n\n")
+    lines.append("## Per-class metrics\n\n")
     lines.append("| class | support | precision | recall | f1 |\n")
     lines.append("|---|---:|---:|---:|---:|\n")
     for r in per_class:
         lines.append(f"| {r['class_name']} | {int(r['support'])} | {r['precision']:.4f} | {r['recall']:.4f} | {r['f1']:.4f} |\n")
     lines.append("\n---\n\n")
 
-    lines.append("## 3. Confusion Matrix（true × pred）\n\n")
+    lines.append("## 3. Confusion Matrix(true x pred)\n\n")
     lines.append(_cm_to_markdown(cm, names))
 
     with open(out_md, "w", encoding="utf-8") as f:

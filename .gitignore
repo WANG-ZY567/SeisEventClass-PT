@@ -19,6 +19,7 @@ conda-meta/
 logs/
 reports/*/
 outputs/
+!outputs/README.md
 runs/
 wandb/
 tensorboard/
@@ -64,3 +65,4 @@ Thumbs.db
 
 # Accidental shell-argument files
 --*
+
