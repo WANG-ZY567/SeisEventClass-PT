@@ -7,6 +7,9 @@ __pycache__/
 .mypy_cache/
 .ruff_cache/
 .ipynb_checkpoints/
+.smoke_data/
+.smoke_logs*/
+tmp/
 
 # Environments
 .env
@@ -26,11 +29,14 @@ tensorboard/
 nohup.out
 *.log
 *.out
+*.pid
+*.launcher.log
 
 # Checkpoints and model caches
 checkpoints/*
 !checkpoints/README.md
 gpt2_cache/
+gpt2_model_path.txt
 *.pth
 *.pt
 *.ckpt

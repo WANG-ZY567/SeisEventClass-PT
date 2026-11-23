@@ -4,7 +4,7 @@ set -euo pipefail
 DATA_DIR="${DATA_DIR:-/path/to/diting2_evt6}"
 CHECKPOINT="${CHECKPOINT:-/path/to/model.pth}"
 LOG_DIR="${LOG_DIR:-./logs}"
-MODEL_NAME="${MODEL_NAME:-SeisMoLLM_evt6_multihead_w01}"
+MODEL_NAME="${MODEL_NAME:-SeisMoLLM_evt6_multihead_w005}"
 
 python main.py \
   --mode test \
@@ -13,5 +13,5 @@ python main.py \
   --data "$DATA_DIR" \
   --checkpoint "$CHECKPOINT" \
   --log-base "$LOG_DIR" \
-  --batch-size "${BATCH_SIZE:-64}" \
+  --batch-size "${BATCH_SIZE:-16}" \
   --workers "${WORKERS:-8}"

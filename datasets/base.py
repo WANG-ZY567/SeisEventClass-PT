@@ -60,10 +60,10 @@ class DatasetBase:
     
 
     def _load_meta_data(self, filename = None) -> pd.DataFrame:
-        pass
+        raise NotImplementedError
 
     def _load_event_data(self, idx: int) -> dict:
-        pass 
+        raise NotImplementedError
     
     def __repr__(self) -> str:
         return (

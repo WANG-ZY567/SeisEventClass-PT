@@ -1,0 +1,16 @@
+name: public-release-audit
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - name: Audit repository and compile Python sources
+        run: python tools/audit_public_release.py

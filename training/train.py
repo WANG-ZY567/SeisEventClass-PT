@@ -1,5 +1,7 @@
 import datetime
+import hashlib
 import inspect
+import json
 import math
 import os
 import shutil
@@ -21,6 +23,76 @@ from .validate import validate
 import torch._dynamo
 
 torch._dynamo.config.suppress_errors = True
+
+
+def _smooth_onehot_targets(targets, label_names, epsilon: float):
+    """Apply label smoothing to one-hot classification targets during training."""
+    epsilon = float(epsilon or 0.0)
+    if epsilon <= 0:
+        return targets
+
+    expanded_labels = sum(
+        [group if isinstance(group, (tuple, list)) else [group] for group in label_names],
+        [],
+    )
+    try:
+        all_onehot = all(Config.get_type(name) == "onehot" for name in expanded_labels)
+    except Exception:
+        all_onehot = False
+    if not all_onehot:
+        return targets
+
+    def smooth(tensor):
+        if not isinstance(tensor, torch.Tensor) or tensor.dim() < 2:
+            return tensor
+        num_classes = tensor.size(1)
+        if num_classes <= 1:
+            return tensor
+        return (1.0 - epsilon) * tensor + epsilon / float(num_classes)
+
+    if isinstance(targets, (tuple, list)):
+        return type(targets)(smooth(target) for target in targets)
+    return smooth(targets)
+
+
+def _sha256(path: str) -> str:
+    digest = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def save_run_metadata(args, log_dir: str) -> None:
+    """Save a machine-readable snapshot of the run and frozen split files."""
+    split_files = {}
+    for split in ("train", "val", "test"):
+        path = os.path.join(args.data, f"meta_evt6_{split}.csv")
+        if os.path.isfile(path):
+            split_files[split] = {
+                "path": os.path.abspath(path),
+                "sha256": _sha256(path),
+                "size_bytes": os.path.getsize(path),
+            }
+
+    metadata = {
+        "created_at": datetime.datetime.now().astimezone().isoformat(),
+        "arguments": {key: value for key, value in vars(args).items() if not key.startswith("_")},
+        "dataset_split_files": split_files,
+        "software": {
+            "python": __import__("sys").version,
+            "torch": torch.__version__,
+            "cuda_runtime": torch.version.cuda,
+            "cuda_available": torch.cuda.is_available(),
+        },
+    }
+    if torch.cuda.is_available():
+        metadata["software"]["gpu"] = torch.cuda.get_device_name(0)
+
+    path = os.path.join(log_dir, "run_metadata.json")
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(metadata, f, indent=2, ensure_ascii=False, default=str)
+    logger.info(f"Run metadata saved: {path}")
 
 
 def train(
@@ -90,6 +162,11 @@ def train(
 
         outputs_for_loss = outs_trans_for_loss(outputs) if outs_trans_for_loss is not None else outputs
         loss_targets = tgts_trans_for_loss(loss_targets) if tgts_trans_for_loss is not None else loss_targets
+        loss_targets = _smooth_onehot_targets(
+            loss_targets,
+            label_names,
+            float(getattr(args, "label_smoothing", 0.0) or 0.0),
+        )
         loss = loss_fn(outputs_for_loss, loss_targets)
 
         optimizer.zero_grad()
@@ -161,6 +238,7 @@ def train_worker(args, device) -> str:
     tensor_writer = SummaryWriter(tb_dir) if args.use_tensorboard else None
 
     if is_main_process():
+        save_run_metadata(args, log_dir)
         with open(os.path.join(log_dir, f"run_tb_{get_time_str()}.sh"), "w") as f:
             f.write(f"tensorboard --logdir '{tb_dir}' --port 8080")
         if not os.path.exists(checkpoint_save_dir):
@@ -189,7 +267,11 @@ def train_worker(args, device) -> str:
     logger.info(f"train size: {len(train_dataset)}, val size:{len(val_dataset)}")
 
     train_sampler = torch.utils.data.DistributedSampler(train_dataset) if is_dist_avail_and_initialized() else None
-    val_sampler = torch.utils.data.DistributedSampler(val_dataset) if is_dist_avail_and_initialized() else None
+    val_sampler = (
+        torch.utils.data.DistributedSampler(val_dataset, shuffle=False)
+        if is_dist_avail_and_initialized()
+        else None
+    )
 
     train_loader = torch.utils.data.DataLoader(
         train_dataset,
@@ -202,7 +284,7 @@ def train_worker(args, device) -> str:
     val_loader = torch.utils.data.DataLoader(
         val_dataset,
         batch_size=args.batch_size,
-        shuffle=((not is_dist_avail_and_initialized()) and args.shuffle),
+        shuffle=False,
         pin_memory=args.pin_memory,
         num_workers=args.workers,
         sampler=val_sampler,
@@ -226,13 +308,16 @@ def train_worker(args, device) -> str:
         )
         logger.info(f"Model loaded: {args.checkpoint}")
 
-    loss_fn = Config.get_loss(model_name=args.model_name).to(device)
+    loss_fn = Config.get_loss(model_name=args.model_name, args=args).to(device)
     best_loss = float("inf") if (checkpoint is None or "loss" not in checkpoint) else checkpoint["loss"]
 
     model = create_model(
         model_name=args.model_name,
         in_channels=in_channels,
         in_samples=args.in_samples,
+        llm_start_layer=int(getattr(args, "LLM_start_layer", 0)),
+        llm_layers=int(getattr(args, "LLM_layer_num", 3)),
+        d_model=int(getattr(args, "d_model", 768)),
         llm_pretrain=bool(getattr(args, "pretrain", True)),
         llm_freeze=bool(getattr(args, "freeze", True)),
     )
@@ -258,22 +343,24 @@ def train_worker(args, device) -> str:
     model = model.to(device)
 
     optim_lower = str(args.optim).lower()
+    scheduler_name = str(getattr(args, "lr_scheduler_name", "cyclic")).strip().lower()
+    optimizer_lr = args.max_lr if (args.use_lr_scheduler and scheduler_name == "cosine") else args.base_lr
     if optim_lower == "adam":
         optimizer = torch.optim.Adam(
-            [{"params": model.parameters(), "initial_lr": args.base_lr}],
-            lr=args.base_lr,
+            [{"params": model.parameters(), "initial_lr": optimizer_lr}],
+            lr=optimizer_lr,
             weight_decay=args.weight_decay,
         )
     elif optim_lower == "adamw":
         optimizer = torch.optim.AdamW(
-            [{"params": model.parameters(), "initial_lr": args.base_lr}],
-            lr=args.base_lr,
+            [{"params": model.parameters(), "initial_lr": optimizer_lr}],
+            lr=optimizer_lr,
             weight_decay=args.weight_decay,
         )
     elif optim_lower == "sgd":
         optimizer = torch.optim.SGD(
-            [{"params": model.parameters(), "initial_lr": args.base_lr}],
-            lr=args.base_lr,
+            [{"params": model.parameters(), "initial_lr": optimizer_lr}],
+            lr=optimizer_lr,
             momentum=args.momentum,
             weight_decay=args.weight_decay,
         )
@@ -302,15 +389,56 @@ def train_worker(args, device) -> str:
                 args.down_steps = 1
             logger.info(f"`args.down_steps` will be set to `{args.down_steps}`")
 
-        scheduler = torch.optim.lr_scheduler.CyclicLR(
-            optimizer,
-            base_lr=args.base_lr,
-            max_lr=args.max_lr,
-            step_size_up=int(args.warmup_steps),
-            step_size_down=int(args.down_steps),
-            mode=args.lr_scheduler_mode,
-            cycle_momentum=False,
-        )
+        if scheduler_name == "cyclic":
+            scheduler = torch.optim.lr_scheduler.CyclicLR(
+                optimizer,
+                base_lr=args.base_lr,
+                max_lr=args.max_lr,
+                step_size_up=int(args.warmup_steps),
+                step_size_down=int(args.down_steps),
+                mode=args.lr_scheduler_mode,
+                gamma=float(getattr(args, "lr_scheduler_gamma", 1.0)),
+                cycle_momentum=False,
+            )
+        elif scheduler_name == "cosine":
+            if not (0 < args.base_lr <= args.max_lr):
+                raise ValueError(
+                    "cosine scheduler requires 0 < base_lr <= max_lr, got "
+                    f"base_lr={args.base_lr}, max_lr={args.max_lr}"
+                )
+            if not (0 <= args.min_lr <= args.max_lr):
+                raise ValueError(
+                    "cosine scheduler requires 0 <= min_lr <= max_lr, got "
+                    f"min_lr={args.min_lr}, max_lr={args.max_lr}"
+                )
+            warmup_steps = min(int(args.warmup_steps), max(0, int(args.steps) - 1))
+            cosine_steps = max(1, int(args.steps) - warmup_steps)
+            cosine = torch.optim.lr_scheduler.CosineAnnealingLR(
+                optimizer,
+                T_max=cosine_steps,
+                eta_min=float(args.min_lr),
+            )
+            if warmup_steps > 0:
+                warmup = torch.optim.lr_scheduler.LinearLR(
+                    optimizer,
+                    start_factor=float(args.base_lr / args.max_lr),
+                    end_factor=1.0,
+                    total_iters=warmup_steps,
+                )
+                scheduler = torch.optim.lr_scheduler.SequentialLR(
+                    optimizer,
+                    schedulers=[warmup, cosine],
+                    milestones=[warmup_steps],
+                )
+            else:
+                scheduler = cosine
+            logger.info(
+                "Warmup+cosine scheduler: "
+                f"warmup_steps={warmup_steps}, cosine_steps={cosine_steps}, "
+                f"base_lr={args.base_lr}, max_lr={args.max_lr}, min_lr={args.min_lr}"
+            )
+        else:
+            raise ValueError(f"Unsupported lr_scheduler_name: {scheduler_name}")
 
         if checkpoint is not None and "scheduler_dict" in checkpoint and bool(getattr(args, "resume", False)):
             scheduler.load_state_dict(checkpoint["scheduler_dict"])
@@ -334,6 +462,9 @@ def train_worker(args, device) -> str:
         if is_dist_avail_and_initialized():
             assert train_sampler is not None
             train_sampler.set_epoch(epoch)
+
+        if hasattr(loss_fn, "set_epoch"):
+            loss_fn.set_epoch(epoch)
 
         train_loss_per_step, train_metrics_merged = train(
             args,
@@ -368,6 +499,8 @@ def train_worker(args, device) -> str:
                 "scheduler_dict": scheduler.state_dict() if scheduler is not None else None,
                 "loss": val_loss,
                 "best_metric": best_metric,
+                "best_metric_name": str(getattr(args, "best_metric", "accuracy")),
+                "args": {key: value for key, value in vars(args).items() if not key.startswith("_")},
                 "time": datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S"),
             }
             save_checkpoint(ckpt, checkpoint_save_dir, epoch)

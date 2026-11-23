@@ -120,7 +120,10 @@ def load_checkpoint(
     checkpoint_phase1_coarse: bool = False,
 ):
     """Load checkpoint."""
-    checkpoint = torch.load(save_path, map_location=device)
+    # Project checkpoints contain tensors and primitive metadata only.  The
+    # restricted loader avoids executing arbitrary pickle payloads from an
+    # untrusted checkpoint file.
+    checkpoint = torch.load(save_path, map_location=device, weights_only=True)
     
     
     if "model_dict" not in checkpoint:

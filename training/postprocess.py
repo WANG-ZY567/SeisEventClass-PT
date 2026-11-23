@@ -264,7 +264,7 @@ class ResultSaver:
             for i in range(len(v)):
                 if isinstance(v[i],list):
                     if len(v[i])==0:
-                        v[i]==""
+                        v[i] = ""
                     elif len(v[i])==1:
                         v[i] = v[i].pop()
                     else:
@@ -289,7 +289,7 @@ class ResultSaver:
 
         return save_k, v
 
-    def append(self, batch_meta_value: dict,targets:dict, results: dict) -> None:
+    def append(self, batch_meta_data: dict, targets: dict, results: dict) -> None:
         """Append rows.
 
         Args:
@@ -357,4 +357,4 @@ class ResultSaver:
         if not os.path.exists(sdir):
             os.makedirs(sdir, exist_ok=True)
 
-        df.to_csv(path)
+        df.to_csv(path, index=False)

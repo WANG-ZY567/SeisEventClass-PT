@@ -6,9 +6,6 @@ from utils import *
 from training import *
 from config import Config
 
-warnings.filterwarnings('ignore')
-
-
 def get_args():
     parser = argparse.ArgumentParser(description="Model training/testing arguments")
 
@@ -20,8 +17,8 @@ def get_args():
                         help="train/test/train_test (default:'train_test')")
 
     # Model
-    parser.add_argument("--model-name", default="SeisMoLLM_dpk", type=str, metavar="MODEL_NAME",
-                        help="model name: 'phasenet/eqtransformer/magnet/ditingmotion/seist/SeisMoLLM' ")
+    parser.add_argument("--model-name", default="SeisMoLLM_evt6_multihead_w005", type=str, metavar="MODEL_NAME",
+                        help="model name (default: paper model 'SeisMoLLM_evt6_multihead_w005')")
     parser.add_argument("--checkpoint", default="", type=str, metavar="CHECKPOINT",
                         help="path to latest checkpoint (default: none)")
     parser.add_argument("--checkpoint-strict", type=bool_, default=True, metavar="CHECKPOINT_STRICT",
@@ -34,8 +31,8 @@ def get_args():
                         help="if True, freeze model backbone parameters (best-effort) (default: False)")
     parser.add_argument("--freeze-coarse", type=bool_, default=False, metavar="FREEZE_COARSE",
                         help="if True, freeze coarse head parameters (best-effort) (default: False)")
-    parser.add_argument("--use-torch-compile", type=bool_, default=True, metavar="USE_TORCH_COMPILE",
-                        help="if `True`, `torch.compile` will be called before training (default:True)")
+    parser.add_argument("--use-torch-compile", type=bool_, default=False, metavar="USE_TORCH_COMPILE",
+                        help="if True, call torch.compile before training (default: False)")
     parser.add_argument('--llm', type=str, default="GPT2", help="the name of LLM")
     parser.add_argument('--pretrain', type=bool_, default=True, help="if `True`, load pretrain LLM weight")
     parser.add_argument('--freeze', type=bool_, default=True, help="if `True`, freeze most of the pretrain LLM weight (LoRA path; use with --pretrain true)")
@@ -45,8 +42,8 @@ def get_args():
     # parser.add_argument('--patch_size', type=int, default=16, help="patch size of data before feeding to LLM")
 
     # Random seed
-    parser.add_argument("--seed", default=0, type=int, metavar="SEED",
-                        help="random seed for everything (default:0)")
+    parser.add_argument("--seed", default=20261107, type=int, metavar="SEED",
+                        help="random seed for everything (default: 20261107)")
 
     # Logs
     parser.add_argument("--log-base", default="./logs", type=str, metavar="LOG_DIR",
@@ -91,12 +88,14 @@ def get_args():
                         help="device. If distributed mode is initialized, this argument will be ignored. (default:'cuda:0')")
 
     # Dataset
-    parser.add_argument("--data", default="./data/diting_light", metavar="DATA", type=str,
+    parser.add_argument("--data", default="./data/diting2_evt6", metavar="DATA", type=str,
                         help="path to dataset")
-    parser.add_argument("--dataset-name", default="diting_light", type=str, metavar="DATASET_NAME",
-                        help="name of dataset ('diting', 'diting_light', 'pnw', 'pnw_light' or 'sos') (default: 'diting_light')")
+    parser.add_argument("--dataset-name", default="diting2_evt6", type=str, metavar="DATASET_NAME",
+                        help="registered dataset name (default: 'diting2_evt6')")
     parser.add_argument("--data-split", type=bool_, default=True, metavar="DATA_SPLIT",
                         help="whether split dataset to train/val/test (default:True)")
+    parser.add_argument("--eval-split", type=str, default="test", choices=("val", "test"),
+                        help="split evaluated by --mode test (default: test)")
     parser.add_argument("--train-size", type=float, default=0.8, metavar="TRAIN_SIZE",
                         help="size of train set (default:0.8)")
     parser.add_argument("--val-size", type=float, default=0.1, metavar="VAL_SIZE",
@@ -105,8 +104,8 @@ def get_args():
     # Data loader
     parser.add_argument("--shuffle", type=bool_, default=True, metavar="SHUFFLE",
                         help="whether shuffle data. (default:True)")
-    parser.add_argument("--workers", default=8, type=int, metavar="WORKERS",
-                        help="number of data loading workers (default: 8)")
+    parser.add_argument("--workers", default=0, type=int, metavar="WORKERS",
+                        help="number of data loading workers (default: 0; Windows-safe)")
     parser.add_argument("--pin-memory", default=True, type=bool_, metavar="PM",
                         help="pin memory (default: True)")
 
@@ -120,7 +119,7 @@ def get_args():
     parser.add_argument("--coda-ratio", default=2.0, type=float, metavar="CODA_RATIO",
                         help="coda ratio (default:2)")
     parser.add_argument("--norm-mode", default="std", type=str, metavar="NORM_MODE",
-                        help="mode of normalization ('max','std' or '') (default: 'std')")
+                        help="normalization: 'max', 'std' (per channel), 'joint_std' (shared RMS), or '' (default: 'std')")
     parser.add_argument("--min-snr", type=float, default=-float("inf"), metavar="MIN_SNR",
                         help="waveform will be regarded as noise if `all(snr)<min_snr` (default:-inf)")
     parser.add_argument("--p-position-ratio", type=float, default=-1, metavar="P_POSITION_RATIO",
@@ -135,6 +134,8 @@ def get_args():
                         help="max number of event (default:1)")
     parser.add_argument("--shift-event-rate", default=0.2, type=float, metavar="SHIFT_EV_RATE",
                         help="shift event rate (default:0.2)")
+    parser.add_argument("--max-shift-ratio", default=0.05, type=float, metavar="MAX_SHIFT_RATIO",
+                        help="maximum absolute waveform shift as a fraction of input length (default:0.05)")
     parser.add_argument("--add-noise-rate", default=0.4, type=float, metavar="ADD_NOISE_RATE",
                         help="add noise rate (default:0.4)")
     parser.add_argument("--add-gap-rate", default=0.4, type=float, metavar="ADD_GAP_RATE",
@@ -159,16 +160,16 @@ def get_args():
                              " where the window size is 0.5s (range:0-100) (default: 0)")
 
     # Train
-    parser.add_argument("--epochs", default=200, type=int, metavar="EPOCHS",
-                        help="number of total epochs (default: 200)")
+    parser.add_argument("--epochs", default=100, type=int, metavar="EPOCHS",
+                        help="number of total epochs (default: 100)")
     parser.add_argument("--patience", default=30, type=int, metavar="PATIENCE",
                         help="how many epochs to wait before stopping when loss is not improving (default: 30)")
     parser.add_argument("--steps", default=0, type=int, metavar="STEPS",
                         help="number of total steps. if `steps > 0`, `epochs` will be ignored. (default: 0)")
     parser.add_argument("--start-epoch", default=0, type=int, metavar="START_EPOCH",
                         help="manual epoch number (useful on restarts) (default: 0)")
-    parser.add_argument("--batch-size", default=500, type=int, metavar="BATCH_SIZE",
-                        help="batch size (default: 500), this is the batch size of each worker (process)")
+    parser.add_argument("--batch-size", default=1, type=int, metavar="BATCH_SIZE",
+                        help="batch size per process (default: 1; increase only after checking VRAM)")
     parser.add_argument("--optim", default="Adam", type=str, metavar="OPTIM",
                         help="name of optimizer (default: 'Adam')")
     parser.add_argument("--momentum", default=0.9, type=float, metavar="MOMENTUM",
@@ -189,16 +190,37 @@ def get_args():
                         help="beta for class-balanced loss when used (default: 0.9999)")
     parser.add_argument("--cb-samples-per-class", default="", type=str, metavar="CB_SAMPLES_PER_CLASS",
                         help="samples-per-class list for class-balanced loss (default: '')")
+    parser.add_argument("--cb-class-multipliers", default="", type=str, metavar="CB_CLASS_MULTIPLIERS",
+                        help="optional per-class multipliers applied after class-balanced weights (default: '')")
+    parser.add_argument(
+        "--cb-weight-schedule", default="fixed", type=str,
+        choices=("fixed", "deferred_linear"),
+        help=("class-balanced weight schedule: fixed or deferred_linear "
+              "(default: fixed)"),
+    )
+    parser.add_argument("--cb-warmup-epochs", default=10, type=int,
+                        help="uniform-weight epochs before a deferred CB ramp (default: 10)")
+    parser.add_argument("--cb-ramp-epochs", default=20, type=int,
+                        help="epochs used to linearly ramp to full CB weights (default: 20)")
+    parser.add_argument("--logit-adjust-tau", default=0.25, type=float, metavar="LOGIT_ADJUST_TAU",
+                        help="strength of class-prior logit adjustment (default: 0.25)")
     parser.add_argument("--loss-from-logits", default=False, type=bool_, metavar="LOSS_FROM_LOGITS",
                         help="if True, treat model outputs as logits for loss (default: False)")
     parser.add_argument("--use-lr-scheduler", default=True, type=bool_, metavar="USE_LR_SCHEDULER",
                         help="whether use lr_scheduler (default: True)")
+    parser.add_argument("--lr-scheduler-name", default="cyclic", type=str, metavar="LR_SCHEDULER_NAME",
+                        choices=("cyclic", "cosine"),
+                        help="learning-rate scheduler: cyclic or warmup+cosine (default: cyclic)")
     parser.add_argument("--lr-scheduler-mode", default="exp_range", metavar="LR_SCHEDULER_MODE", type=str,
                         help="one of {'triangular', 'triangular2', 'exp_range'} (default: 'exp_range')")
+    parser.add_argument("--lr-scheduler-gamma", default=1.0, type=float, metavar="LR_SCHEDULER_GAMMA",
+                        help="gamma for exp_range CyclicLR (default: 1.0, no cycle-amplitude decay)")
     parser.add_argument("--base-lr", default=8e-5, type=float, metavar="BASE_LR",
                         help="minimum learning rate (default: 5e-5)")
     parser.add_argument("--max-lr", default=1e-3, type=float, metavar="MAX_LR",
                         help="maximum learning rate (default: 1e-3)")
+    parser.add_argument("--min-lr", default=1e-6, type=float, metavar="MIN_LR",
+                        help="minimum final learning rate for cosine scheduler (default: 1e-6)")
     parser.add_argument("--warmup-steps", default=2000, type=float, metavar="WARMUP_STEPS",
                         help="number of training iterations in the increasing half of a cycle."
                              " If `0 < warmup_steps < 1`, it will be treated as a ratio of total steps. (default: 2000)")
@@ -278,6 +300,9 @@ if __name__ == "__main__":
     if args.distributed:
         args.device = f"cuda:{get_local_rank()}"
 
+    if str(args.device).startswith("cuda") and not torch.cuda.is_available():
+        warnings.warn("CUDA was requested but is unavailable; falling back to CPU.")
+        args.device = "cpu"
     device = torch.device(args.device)
 
     if args.use_torch_compile and device.type == "cuda":
