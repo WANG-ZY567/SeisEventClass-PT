@@ -76,6 +76,13 @@ class DiTing2Evt6(DatasetBase):
 
         meta_df = pd.read_csv(csv_path, low_memory=False)
 
+        required = {"key", "part", "_npy_path", "_evt6"}
+        missing = required.difference(meta_df.columns)
+        if missing:
+            raise ValueError(
+                f"[DiTing2Evt6] {csv_path} is missing required columns: {sorted(missing)}"
+            )
+
         # Open-source note: implementation detail.
         for k in meta_df.columns:
             if meta_df[k].dtype in [object, np.object_, "object", "O"]:
@@ -167,6 +174,11 @@ class DiTing2Evt6(DatasetBase):
                     )
                 continue
 
+            if data.ndim != 2 or data.shape[0] != 3:
+                raise ValueError(
+                    f"[DiTing2Evt6] Expected waveform shape [3, L], got {data.shape}: {npy_path}"
+                )
+
             # event dict: inputs use 'data', labels use 'evt6'
             try:
                 cls_id = int(evt6)
@@ -188,6 +200,30 @@ class DiTing2Evt6(DatasetBase):
                 "evt6_sp": [cls_sp] if cls_sp >= 0 else [],
                 "snr": np.array([10.0, 10.0, 10.0], dtype=np.float32),
             }
+
+            # Explicit phase information for the optional EVT6 S-aware model.
+            # Feature 0: dimensionless S-P interval, normalized by trace length.
+            # Feature 1: valid-S indicator. Missing/invalid S is represented as [0, 0].
+            def _finite_number(value):
+                try:
+                    number = float(value)
+                except (TypeError, ValueError):
+                    return None
+                return number if np.isfinite(number) else None
+
+            p_pick = _finite_number(target.get("p_pick", None))
+            s_pick = _finite_number(target.get("s_pick", None))
+            valid_s = (
+                p_pick is not None
+                and s_pick is not None
+                and 0 <= p_pick < data.shape[1]
+                and p_pick < s_pick < data.shape[1]
+            )
+            if valid_s:
+                sp_interval = float(np.clip((s_pick - p_pick) / data.shape[1], 0.0, 1.0))
+                event["sp_info"] = np.array([sp_interval, 1.0], dtype=np.float32)
+            else:
+                event["sp_info"] = np.array([0.0, 0.0], dtype=np.float32)
             return event, target.to_dict()
 
         raise RuntimeError(

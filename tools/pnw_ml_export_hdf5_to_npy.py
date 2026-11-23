@@ -97,6 +97,55 @@ def to_3c_L(arr, target_L: int):
     return np.pad(x, ((0, 0), (0, pad)), mode="constant")
 
 
+def p_aligned_window(
+    arr,
+    p_arrival_sample: float,
+    source_rate_hz: float,
+    target_rate_hz: float,
+    pre_p_seconds: float,
+    post_p_seconds: float,
+):
+    """Crop a fixed physical P-centred window and resample it.
+
+    The PNW ComCat files are 100 Hz whereas the revised DiTing protocol is
+    50 Hz.  Cropping in physical time before downsampling prevents an
+    accidental centre-crop/window-offset confound in the external test.
+    """
+    import numpy as np
+    from scipy.signal import resample_poly
+
+    x = np.asarray(arr, dtype=np.float32)
+    if x.ndim == 1:
+        x = x.reshape(1, -1)
+    if x.shape[0] == 3:
+        pass
+    elif x.shape[-1] == 3:
+        x = x.T
+    else:
+        raise ValueError(f"unexpected shape {x.shape}, expect 3xL or Lx3")
+    if source_rate_hz <= 0 or target_rate_hz <= 0:
+        raise ValueError("sampling rates must be positive")
+
+    pre_source = int(round(pre_p_seconds * source_rate_hz))
+    total_source = int(round((pre_p_seconds + post_p_seconds) * source_rate_hz))
+    start = int(round(p_arrival_sample)) - pre_source
+    stop = start + total_source
+    padded = np.zeros((3, total_source), dtype=np.float32)
+    src_start, src_stop = max(start, 0), min(stop, x.shape[1])
+    if src_stop > src_start:
+        dst_start = src_start - start
+        padded[:, dst_start : dst_start + (src_stop - src_start)] = x[:, src_start:src_stop]
+
+    # PNW is 100 Hz and DiTing is 50 Hz; use rational polyphase resampling
+    # rather than decimation so this remains valid if a documented rate changes.
+    from fractions import Fraction
+
+    ratio = Fraction(float(target_rate_hz) / float(source_rate_hz)).limit_denominator(1000)
+    y = resample_poly(padded, ratio.numerator, ratio.denominator, axis=1).astype(np.float32, copy=False)
+    expected = int(round((pre_p_seconds + post_p_seconds) * target_rate_hz))
+    return to_3c_L(y, expected)
+
+
 def main() -> None:
     try:
         import h5py  # type: ignore
@@ -110,6 +159,17 @@ def main() -> None:
     ap.add_argument("--meta_csv", type=Path, required=True, help="data trace_name data _npy_path")
     ap.add_argument("--data_dir", type=Path, required=True, help="meta data _npy_path data")
     ap.add_argument("--in_samples", type=int, default=8192)
+    ap.add_argument(
+        "--window-policy",
+        choices=("center", "p_aligned"),
+        default="center",
+        help="center preserves the legacy behavior; p_aligned uses metadata P arrivals.",
+    )
+    ap.add_argument("--p-column", default="pnw_p_arrival_sample")
+    ap.add_argument("--source-rate-column", default="pnw_sampling_rate_hz")
+    ap.add_argument("--target-sampling-rate", type=float, default=50.0)
+    ap.add_argument("--pre-p-seconds", type=float, default=10.0)
+    ap.add_argument("--post-p-seconds", type=float, default=50.0)
     ap.add_argument("--max_rows", type=int, default=0, help="0 data")
     args = ap.parse_args()
 
@@ -134,7 +194,24 @@ def main() -> None:
             out_path = args.data_dir / rel
             try:
                 raw = read_waveform_from_h5(h5, tn)
-                arr = to_3c_L(raw, args.in_samples)
+                if args.window_policy == "p_aligned":
+                    p_sample = float(row[args.p_column])
+                    source_rate = float(row[args.source_rate_column])
+                    arr = p_aligned_window(
+                        raw,
+                        p_arrival_sample=p_sample,
+                        source_rate_hz=source_rate,
+                        target_rate_hz=args.target_sampling_rate,
+                        pre_p_seconds=args.pre_p_seconds,
+                        post_p_seconds=args.post_p_seconds,
+                    )
+                    if arr.shape[1] != args.in_samples:
+                        raise ValueError(
+                            f"p_aligned window has {arr.shape[1]} samples, expected --in_samples {args.in_samples}; "
+                            "make --in-samples equal to (pre_p_seconds + post_p_seconds) * target_sampling_rate"
+                        )
+                else:
+                    arr = to_3c_L(raw, args.in_samples)
                 out_path.parent.mkdir(parents=True, exist_ok=True)
                 np.save(out_path, arr)
                 n_ok += 1

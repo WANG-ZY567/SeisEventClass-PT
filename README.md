@@ -2,248 +2,227 @@
 
 # SeisEventClass-PT
 
-### Seismic Event Classification with Pretrained Transformers
+### Six-class seismic event classification with waveform tokenization and pretrained Transformers
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![GitHub Repo](https://img.shields.io/badge/GitHub-SeisEventClass--PT-black.svg)](https://github.com/WANG-ZY567/SeisEventClass-PT)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
-[![PyTorch](https://img.shields.io/badge/PyTorch-2.4%2B-ee4c2c.svg)](https://pytorch.org/)
+[![PyTorch](https://img.shields.io/badge/PyTorch-2.7.1-ee4c2c.svg)](https://pytorch.org/)
 
 </div>
 
----
-
 ## Overview
 
-**SeisEventClass-PT** is a research codebase for seismic event classification based on waveform tokenization and pretrained Transformer modeling. The repository focuses on the **DiTing 2.0 EVT6** task, where three-component seismic waveforms are classified into six event types.
+SeisEventClass-PT classifies three-component seismic waveforms into the six
+DiTing 2.0 EVT6 catalogue labels: `eq`, `ep`, `ss`, `sp`, `se`, and `ot`.
+The paper model combines a multi-scale 1-D convolutional tokenizer, the first
+three layers of pretrained GPT-2, LoRA adaptation, and a six-class prediction
+head with auxiliary objectives.
 
-The core idea is to convert continuous seismic waveforms into learnable token-like representations using convolutional frontends, and then adapt a pretrained Transformer / GPT-2 backbone for event-level classification. This design allows the model to capture discriminative waveform patterns such as phase arrivals, energy release duration, component-wise differences, and coda characteristics.
+The repository contains the model, event-disjoint data preparation tools,
+training and evaluation entry points, component ablations, event-level
+aggregation, and ComCat zero-shot evaluation utilities. Raw datasets,
+generated arrays, pretrained caches, and experiment checkpoints are excluded.
 
-This repository is organized for reproducible experiments, including EVT6 dataset preparation, supervised training, evaluation, event-level aggregation, transfer protocols, and baseline comparisons.
+## Paper-to-code map
 
-## Key Features
+| Manuscript name | Code entry / variant | Description |
+|---|---|---|
+| SeisEventClass-PT | `SeisMoLLM_evt6_multihead_w005` | Full paper model |
+| SeisEventClass-RandInit | `EVT6_ABLATION=random_lora` | GPT-2 initialized randomly; matched architecture and LoRA |
+| SeisEventClass-SingleScale | `EVT6_ABLATION=single_scale` | Single-scale convolutional tokenizer |
+| SeisEventClass-NoLoRA | `EVT6_ABLATION=pretrained_no_lora` | Pretrained GPT-2 without LoRA |
+| SeisEventClass-FrozenGPT2 | `EVT6_ABLATION=pretrained_frozen` | Pretrained GPT-2 fully frozen |
 
-- **EVT6 seismic event classification** on DiTing 2.0 style data.
-- **Pretrained Transformer backbone** adapted from GPT-2 for seismic waveform representation learning.
-- **Waveform tokenization frontend** based on multi-scale 1D convolutional embedding.
-- **Multiple model variants**, including flat classification, hierarchical heads, multi-auxiliary heads, and CNN / spectrogram baselines.
-- **Reproducible data protocol tools** for dataset construction, holdout splits, station-transfer evaluation, and event-level aggregation.
-- **Open-source friendly layout**, excluding raw data, checkpoints, model caches, and historical experiment logs.
+All five variants use the `w005` multi-head objective. The suffix denotes
+auxiliary loss weights of `0.05`, not a different input dataset.
 
-## EVT6 Label Definition
+## Repository layout
 
-The EVT6 task follows the `evtype` labels used in the prepared DiTing 2.0 metavalue:
-
-| Class ID | Event Code | Description |
-|---:|---|---|
-| 0 | `eq` | Natural earthquake |
-| 1 | `ep` | Explosion / blasting event |
-| 2 | `co` / `ss` | Collapse event; `ss` is treated as the DiTing 2.0 alias of collapse |
-| 3 | `sp` | DiTing 2.0 event type `sp` |
-| 4 | `se` | DiTing 2.0 event type `se` |
-| 5 | `ot` | Other event type |
-
-The dataset adapter is implemented in `datasets/diting2_evt6.py`.
-
-## Repository Structure
-
-```data
+```text
 SeisEventClass-PT/
-|-- main.py                         # Main training / evaluation entry
-|-- config.py                       # Model, loss, label, and metric registry
-|-- requirements.txt                # Python dependencies
-|-- datasets/                       # Dataset adapters
-|-- models/                         # SeisMoLLM, Transformer, CNN, and baseline models
-|-- training/                       # Training, validation, testing, and preprocessing loops
-|-- utils/                          # Metrics, logging, visualization, and helper utilities
-|-- tools/                          # Data preparation and analysis scripts
-|-- scripts/                        # Recommended lightweight train / eval scripts
-|-- run_scripts/                    # Original training / testing examples
-|-- docs/                           # Dataset, method, leakage, and reproducibility notes
-|-- checkpoints/                    # Local checkpoints, ignored by Git
-`-- outputs/                        # Local outputs, ignored by Git
+├── main.py                       # Main train/test entry
+├── config.py                     # Model, loss, label, and metric registry
+├── datasets/                     # Dataset adapters
+├── models/                       # Tokenizer, GPT-2/LoRA model, and baselines
+├── training/                     # Train, validation, and test loops
+├── tools/                        # Data, analysis, external evaluation, ablations
+├── scripts/                      # Reproducible paper train/eval commands
+├── docs/                         # Data and reproducibility notes
+└── requirements.txt
 ```
 
 ## Installation
 
-Clone this repository and install the required packages in a clean Python environment:
-
 ```bash
 git clone https://github.com/WANG-ZY567/SeisEventClass-PT.git
 cd SeisEventClass-PT
-```
-
-```bash
+python -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-The code has been organized around PyTorch-based training. Please install a CUDA-enabled PyTorch build that matches your GPU driver and cluster environment.
+On Windows, activate with `.venv\Scripts\Activate.ps1`. If the pinned PyTorch
+wheel does not match your CUDA installation, install the appropriate PyTorch
+2.7.1 build first and then install the remaining requirements.
 
-## Data Preparation
+## GPT-2 checkpoint
 
-Raw DiTing 2.0 data and generated waveform arrays are not included in this repository.
-
-Prepare the EVT6 dataset with:
-
-```bash
-python tools/prepare_diting2_evt6.py \
-  --out_dir /path/to/diting2_evt6 \
-  --natural_full5_dir /path/to/diting2_preprocessed \
-  --natural_json /path/to/CENC_DiTingv2_natural_earthquake.json \
-  --non_h5 /path/to/CENC_DiTingv2_non_natural_earthquake.hdf5 \
-  --non_json /path/to/CENC_DiTingv2_non_natural_earthquake.json \
-  --val_per_class 300 \
-  --test_per_class 300
-```
-
-The generated directory is expected to contain metadata files such as:
-
-```data
-meta_evt6.csv
-meta_evt6_train.csv
-meta_evt6_val.csv
-meta_evt6_test.csv
-selection_record_evt6.json
-waves/
-waves_non/
-```
-
-See `docs/DATA_ACCESS.md`, `docs/EVT6_DATASET_REPORT_PAPERALIGN.md`, and `docs/REPRODUCIBILITY.md` for more details.
-
-## GPT-2 / Pretrained Backbone
-
-SeisEventClass-PT adapts GPT-2 as the pretrained Transformer backbone. You can download GPT-2 manually from HuggingFace or use the helper scripts:
+Download GPT-2 with either helper:
 
 ```bash
 python download_gpt2_simple.py
-```
-
-or:
-
-```bash
+# or
 python download_gpt2_modelscope.py
 ```
 
-After downloading, make sure the GPT-2 path used by `models/SeisMoLLM.py` points to your local model directory.
-
-## Training
-
-The recommended EVT6 training entry is:
+Point the code to the local checkpoint with:
 
 ```bash
-DATA_DIR=/path/to/diting2_evt6 \
-MODEL_NAME=SeisMoLLM_evt6_multihead_w01 \
-BATCH_SIZE=64 \
-EPOCHS=100 \
-bash scripts/train_evt6.sh
+export SEISMOLLM_GPT2_PATH=/path/to/gpt2
 ```
 
-Equivalent direct command:
+Alternatively, write the path into a local `gpt2_model_path.txt`. That file is
+ignored by Git so machine-specific paths are not published.
 
-```bash
-python main.py \
-  --mode train_test \
-  --model-name SeisMoLLM_evt6_multihead_w01 \
-  --dataset-name diting2_evt6 \
-  --data /path/to/diting2_evt6 \
-  --batch-size 64 \
-  --epochs 100 \
-  --log-base ./logs
+## Data preparation
+
+DiTing 2.0 is not redistributed here. Obtain the source data from its official
+provider and construct the EVT6 benchmark locally. The preprocessing code is
+split into the following auditable stages:
+
+1. `tools/build_diting2_evt6_review_protocol.py` filters, windows, and quality
+   controls records from the two DiTing 2.0 source files. For the revised
+   benchmark, pass `--in_samples 8192 --pre_samples 500 --require_valid_sg`;
+   do not rely on the script's historical `pre_samples` default.
+2. `tools/create_evt6_bandpass_dataset.py` applies per-component linear
+   detrending, a Tukey taper, and a fourth-order 1-20 Hz zero-phase Butterworth
+   band-pass filter at 50 Hz.
+3. `tools/augment_evt6_natural_classes.py` adds eligible non-`eq` records found
+   in the natural-event source, resolves duplicated event identifiers, and
+   applies the same signal processing to newly exported records.
+4. `tools/resplit_evt6_event_8020.py` creates event-disjoint train, validation,
+   and test manifests.
+5. `training/preprocess.py` performs per-component demeaning and standard-
+   deviation normalization at model input time (`--norm-mode std`).
+
+The prepared directory must contain:
+
+```text
+meta_evt6_train.csv
+meta_evt6_val.csv
+meta_evt6_test.csv
 ```
 
-For distributed training:
+and the waveform arrays referenced by `_npy_path`. See
+[`docs/PREPROCESSING_ZH.md`](docs/PREPROCESSING_ZH.md),
+[`docs/REPRODUCIBILITY.md`](docs/REPRODUCIBILITY.md), and
+[`docs/DATA_ACCESS.md`](docs/DATA_ACCESS.md) before running the pipeline.
+
+## Reproduce the paper model
+
+Linux/macOS:
 
 ```bash
-DATA_DIR=/path/to/diting2_evt6 \
-GPUS=4 \
-bash scripts/train_evt6.sh
+export DATA_DIR=/path/to/prepared_evt6
+export SEISMOLLM_GPT2_PATH=/path/to/gpt2
+bash scripts/train_paper_evt6.sh
 ```
 
-## Evaluation
+Windows PowerShell:
 
-Evaluate a trained checkpoint with:
+```powershell
+.\scripts\train_paper_evt6.ps1 `
+  -DataDir "D:\data\diting2_evt6" `
+  -Gpt2Path "D:\models\gpt2"
+```
+
+The scripts encode the paper configuration: 50 Hz, 8,192 samples, three GPT-2
+layers, hidden size 768, batch size 16, Adam, cyclic learning rate, class-
+balanced cross-entropy (`beta=0.995`), validation-accuracy checkpoint selection,
+and random seed `20261107`.
+
+## Evaluate a checkpoint
 
 ```bash
-DATA_DIR=/path/to/diting2_evt6 \
+DATA_DIR=/path/to/prepared_evt6 \
 CHECKPOINT=/path/to/model.pth \
-MODEL_NAME=SeisMoLLM_evt6_multihead_w01 \
-bash scripts/eval_evt6.sh
+bash scripts/eval_paper_evt6.sh
 ```
 
-Or directly:
+```powershell
+.\scripts\eval_paper_evt6.ps1 `
+  -DataDir "D:\data\diting2_evt6" `
+  -Checkpoint "D:\runs\model.pth" `
+  -Gpt2Path "D:\models\gpt2"
+```
+
+Generate detailed waveform- and event-level reports from a saved prediction
+CSV with `tools/analyze_evt6_predictions.py`.
+
+## Component ablations
+
+Run all matched paper variants with:
 
 ```bash
-python main.py \
-  --mode test \
-  --model-name SeisMoLLM_evt6_multihead_w01 \
-  --dataset-name diting2_evt6 \
-  --data /path/to/diting2_evt6 \
-  --checkpoint /path/to/model.pth
+DATA=/path/to/prepared_evt6 \
+PY=python \
+OUTPUT_ROOT=./outputs \
+bash tools/run_evt6_paired_ablation.sh
 ```
 
-After testing, EVT6 reports and confusion matrices can be generated with:
+The runner checks parameter compatibility before training and writes a joint
+summary for the full model and the four ablations listed above.
+
+## ComCat zero-shot evaluation
+
+The ComCat utilities are under `tools/prepare_comcat_evt6_zeroshot.py` and
+`tools/evaluate_comcat_shared_binary.py`. The manuscript reports the
+`strict_six_class_output` result: the model retains all six EVT6 outputs, and
+ComCat records labelled `eq` or `ep` that are predicted as any other EVT6 class
+are counted as incorrect. It is not a six-class ComCat benchmark because
+ComCat provides external reference labels only for `eq` and `ep` in this study.
+
+## Public-release checks
+
+Before committing or creating a release archive, run:
 
 ```bash
-python tools/report_evt6_results.py --run_dir /path/to/run_dir
+python tools/audit_public_release.py
 ```
 
-## Additional Tools
+The audit checks for private absolute paths, secrets, data/checkpoint files,
+large files, transient environments, and Python syntax errors.
 
-The `tools/` directory includes scripts for:
+## Data and code availability
 
-- EVT6 dataset construction and protocol variants.
-- Station-transfer split generation.
-- Event-level prediction aggregation.
-- Stratified analysis by event metadata.
-- Class sensitivity analysis.
-- CNN and spectrogram baseline training.
-- PNW / ComCat external evaluation utilities.
+Raw DiTing 2.0 and ComCat waveforms, generated arrays, pretrained model caches,
+and trained checkpoints are not redistributed because of provider policies and
+file-size constraints. Users must obtain the datasets from their original
+providers and generate local derivatives with the included tools.
 
-See `docs/EVT6_XAPP_PROTOCOLS_AND_METRICS.md` for the extended evaluation protocols.
+## Acknowledgements
 
-## Notes for Open-Source Use
-
-This repository intentionally does not include:
-
-- raw DiTing 2.0 data;
-- generated waveform arrays;
-- pretrained GPT-2 cache files;
-- trained checkpoints;
-- TensorBoard / W&B logs;
-- historical experiment folders.
-
-Please keep datasets under a local data directory and pass the path through `--data`.
-
-
-## Data and Code Availability
-
-The source code is released under the MIT License at this repository. Raw DiTing 2.0 waveforms, generated waveform arrays, pretrained model caches, and trained checkpoints are not redistributed here because of dataset-provider policies and file-size constraints. Users should obtain DiTing 2.0 through the official provider procedures and use the scripts in `tools/` to reproduce the prepared EVT6 metadata and waveform arrays locally.
-
-For external evaluation, the Curated Pacific Northwest AI-ready Seismic Dataset is available from its original repository: https://github.com/niyiyu/PNW-ML.
-## Acknowledgement
-
-This project is developed based on the SeisMoLLM / SeisT-style seismic modeling codebase, with extensions for DiTing 2.0 EVT6 event classification, dataset construction, and event-level evaluation.
-
-We thank the authors of SeisMoLLM and SeisT for their valuable open-source contributions.
+This project builds on the open-source SeisMoLLM and SeisT codebases and adds
+the EVT6 model, unified data protocol, event-level evaluation, ablations, and
+cross-catalogue analysis.
 
 ## Citation
 
-If this repository is useful for your research, please cite the related SeisMoLLM work and this EVT6 event-classification project when appropriate.
+Please cite the associated SeisEventClass-PT manuscript. Until its publication,
+also cite the upstream SeisMoLLM work where appropriate:
 
 ```bibtex
-@misc{wang2025seismollmadvancingseismicmonitoring,
-      title={SeisMoLLM: Advancing Seismic Monitoring via Cross-modal Transfer with Pre-trained Large Language Model},
-      author={Xinghao Wang and Feng Liu and Rui Su and Zhihui Wang and Lihua Fang and Lianqing Zhou and Lei Bai and Wanli Ouyang},
-      year={2025},
-      eprint={2502.19960},
-      archivePrefix={arXiv},
-      primaryClass={cs.LG},
-      url={https://arxiv.org/abs/2502.19960}
+@misc{wang2025seismollm,
+  title={SeisMoLLM: Advancing Seismic Monitoring via Cross-modal Transfer with Pre-trained Large Language Model},
+  author={Wang, Xinghao and Liu, Feng and Su, Rui and Wang, Zhihui and Fang, Lihua and Zhou, Lianqing and Bai, Lei and Ouyang, Wanli},
+  year={2025},
+  eprint={2502.19960},
+  archivePrefix={arXiv},
+  primaryClass={cs.LG},
+  url={https://arxiv.org/abs/2502.19960}
 }
 ```
 
 ## License
 
-This project is released under the MIT License. See `LICENSE` for details.
-
-
+Released under the [MIT License](LICENSE).

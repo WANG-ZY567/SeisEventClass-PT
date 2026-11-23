@@ -88,6 +88,7 @@ class DataPreprocessor:
         soft_label_shape: str,
         soft_label_width: int,
         dtype=np.float32,
+        max_shift_ratio: float = 0.05,
     ):
         # Open-source note: implementation detail.
         # Open-source note: implementation detail.
@@ -109,6 +110,11 @@ class DataPreprocessor:
         self._max_event_num = max_event_num
         self.generate_noise_rate = generate_noise_rate
         self.shift_event_rate = shift_event_rate
+        self.max_shift_ratio = float(max_shift_ratio)
+        if not 0.0 <= self.max_shift_ratio <= 1.0:
+            raise ValueError(
+                f"max_shift_ratio must be in [0, 1], got {self.max_shift_ratio}"
+            )
         self.mask_percent = mask_percent
         self.noise_percent = noise_percent
         self.min_event_gap = int(min_event_gap_sec * self.sampling_rate)
@@ -145,6 +151,11 @@ class DataPreprocessor:
             std_data = np.std(data, axis=1, keepdims=True)
             std_data[std_data == 0] = 1
             data /= std_data
+        elif mode == "joint_std":
+            # One scale per waveform preserves relative component amplitudes.
+            rms = np.sqrt(np.mean(np.square(data, dtype=np.float64)))
+            if rms > 0:
+                data /= rms
         elif mode == "":
             pass
         return data
@@ -154,16 +165,27 @@ class DataPreprocessor:
         value: data [C, L] data. 
         data SeismicDataset data"data idx data augmentation=True"data; data. 
         """
-        rng = np.random.default_rng()
-        data = np.asarray(data, dtype=self.dtype)
+        # Draw the Generator seed from NumPy's process-local RNG.  The global
+        # RNG is seeded by setup_seed/DataLoader workers, unlike an unseeded
+        # default_rng(), so repeated runs can reproduce the same augmentation.
+        rng = np.random.default_rng(int(np.random.randint(0, np.iinfo(np.int32).max)))
+        # Work on a copy: some augmentations operate in-place and must not
+        # modify an array cached or shared by the dataset implementation.
+        data = np.array(value, dtype=self.dtype, copy=True)
         if data.ndim != 2:
             return data
         c, length = data.shape[0], data.shape[1]
 
-        if rng.random() < self.shift_event_rate:
-            max_shift = max(1, int(0.05 * length))
+        if rng.random() < self.shift_event_rate and self.max_shift_ratio > 0.0:
+            max_shift = max(1, int(self.max_shift_ratio * length))
             shift = int(rng.integers(-max_shift, max_shift + 1))
             data = np.roll(data, shift, axis=-1)
+            # A seismic window must not wrap samples from one edge to the
+            # other.  Fill the newly exposed region with zeros instead.
+            if shift > 0:
+                data[:, :shift] = 0
+            elif shift < 0:
+                data[:, shift:] = 0
 
         if rng.random() < self.add_noise_rate:
             std = float(np.std(data) + 1e-6)
@@ -465,6 +487,7 @@ class SeismicDataset(Dataset):
             max_event_num=args.max_event_num,
             generate_noise_rate=args.generate_noise_rate,
             shift_event_rate=args.shift_event_rate,
+            max_shift_ratio=args.max_shift_ratio,
             mask_percent=args.mask_percent,
             noise_percent=args.noise_percent,
             min_event_gap_sec=args.min_event_gap,

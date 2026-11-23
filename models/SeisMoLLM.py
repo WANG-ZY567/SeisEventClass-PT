@@ -138,13 +138,28 @@ class Multi_Scale_Conv_Block(nn.Module):
 
 
 class LLM_Block(nn.Module):
-    def __init__(self, start_layer, end_layer, patch_size, lora_config, pretrain=True, freeze=True):
+    def __init__(
+        self,
+        start_layer,
+        end_layer,
+        patch_size,
+        lora_config,
+        d_model=768,
+        max_positions=1024,
+        pretrain=True,
+        freeze=True,
+    ):
         super(LLM_Block, self).__init__()
 
         self.pretrain = pretrain
         self.freeze = freeze
         self.lora_config = lora_config
         self.patch_size = patch_size
+
+        if start_layer < 0 or end_layer <= start_layer:
+            raise ValueError(
+                f"invalid GPT-2 layer range: start_layer={start_layer}, end_layer={end_layer}"
+            )
 
         if pretrain:
             gpt2_path = _resolve_gpt2_snapshot_path()
@@ -153,9 +168,31 @@ class LLM_Block(nn.Module):
                 output_hidden_states=True,
                 local_files_only=True
             )
+            if int(self.llm.config.n_embd) != int(d_model):
+                raise ValueError(
+                    "The pretrained GPT-2 hidden size is "
+                    f"{self.llm.config.n_embd}, but --d_model={d_model}. "
+                    "Use --d_model 768 with GPT-2, or --pretrain false for a custom size."
+                )
+            if end_layer > len(self.llm.h):
+                raise ValueError(
+                    f"GPT-2 has {len(self.llm.h)} layers, cannot select end_layer={end_layer}."
+                )
         else:
             print("------------------no pretrain------------------")
-            self.llm = GPT2.GPT2Model(GPT2.configuration_gpt2.GPT2Config())
+            # A random-initialized model does not need GPT-2's 50k-token word
+            # embedding because this project always supplies `inputs_embeds`.
+            # Keeping vocab_size=1 makes CPU/synthetic smoke tests lightweight.
+            n_head = next((n for n in (12, 8, 6, 4, 3, 2, 1) if int(d_model) % n == 0), 1)
+            cfg = GPT2.configuration_gpt2.GPT2Config(
+                vocab_size=1,
+                n_positions=max(2, int(max_positions)),
+                n_ctx=max(2, int(max_positions)),
+                n_embd=int(d_model),
+                n_layer=int(end_layer),
+                n_head=int(n_head),
+            )
+            self.llm = GPT2.GPT2Model(cfg)
         self.llm.h = self.llm.h[start_layer: end_layer]
 
         # Random-init stack: no PEFT / no LoRA checkpoint shape - train full weights.
@@ -257,6 +294,30 @@ class HeadClassification(nn.Module):
         return x
 
 
+class HeadClassificationGELU(nn.Module):
+    """Original EVT6 classifier head with GELU after each temporal convolution.
+
+    Parameter names and tensor shapes match HeadClassification so pretrained
+    EVT6 checkpoints can initialize this ablation strictly.
+    """
+    def __init__(self, feature_channels, num_classes, out_act_layer, **kwargs):
+        super().__init__()
+        self.convs = nn.ModuleList([nn.Conv1d(feature_channels, feature_channels, 16, 4) for _ in range(2)])
+        self.activations = nn.ModuleList([nn.GELU() for _ in range(2)])
+        self.pool = nn.AdaptiveAvgPool1d(1)
+        self.flatten = nn.Flatten(1, -1)
+        self.lin = nn.Linear(feature_channels, num_classes)
+        self.out_act = out_act_layer()
+
+    def forward(self, x, _: torch.Tensor = None):
+        for conv, activation in zip(self.convs, self.activations):
+            x = activation(conv(x))
+        x = self.pool(x)
+        x = self.flatten(x)
+        x = self.lin(x)
+        return self.out_act(x)
+
+
 class HeadClassificationAttnPool(nn.Module):
     def __init__(
         self,
@@ -282,6 +343,51 @@ class HeadClassificationAttnPool(nn.Module):
         y = self.lin(pooled)
         y = self.out_act(y)
         return y
+
+
+class HeadClassificationConvAttn(nn.Module):
+    """Original EVT head with a lightweight learnable temporal pooling step.
+
+    The two temporal convolutions and their strides are kept identical to
+    ``HeadClassification``.  GELU supplies the missing non-linearity between
+    the convolutions, while a one-channel attention map replaces uniform
+    global-average pooling.  This keeps the backbone and output interface
+    unchanged and adds only a very small number of parameters.
+    """
+
+    def __init__(
+        self,
+        feature_channels: int,
+        num_classes: int,
+        out_act_layer,
+        dropout: float = 0.2,
+        **kwargs,
+    ):
+        super().__init__()
+        self.blocks = nn.ModuleList(
+            [
+                nn.Sequential(
+                    nn.Conv1d(feature_channels, feature_channels, 16, 4),
+                    nn.GELU(),
+                )
+                for _ in range(2)
+            ]
+        )
+        self.attn_logits = nn.Conv1d(feature_channels, 1, kernel_size=1)
+        self.norm = nn.LayerNorm(feature_channels)
+        self.dropout = nn.Dropout(p=float(dropout))
+        self.lin = nn.Linear(feature_channels, num_classes)
+        self.out_act = out_act_layer()
+
+    def forward(self, x, _: torch.Tensor = None):
+        for block in self.blocks:
+            x = block(x)
+        weights = torch.softmax(self.attn_logits(x), dim=-1)
+        x = (x * weights).sum(dim=-1)
+        x = self.norm(x)
+        x = self.dropout(x)
+        x = self.lin(x)
+        return self.out_act(x)
 
 
 class HeadHierEvt6Sp(nn.Module):
@@ -416,6 +522,7 @@ class SeisMoLLM(nn.Module):
         conv_channels=[16, 48, 96],
         conv_kernel_sizes=[16, 8, 6, 1],
         conv_strides=[2, 2, 2, 1],
+        llm_start_layer=0,
         llm_layers=3,
         d_model=768,
         patch_size=8,
@@ -433,6 +540,8 @@ class SeisMoLLM(nn.Module):
         channel_weighting_mode: str = "softplus",
         cond_num_classes: int = 0,
         cond_embed_dropout: float = 0.0,
+        aux_feature_dim: int = 0,
+        aux_embed_dropout: float = 0.0,
         in_samples: int = 8192,
         spec_input: bool = False,
         llm_pretrain: bool = True,
@@ -448,6 +557,10 @@ class SeisMoLLM(nn.Module):
         dp_head_channels = list(dp_head_channels)
 
         assert len(conv_channels) + 1 == len(conv_kernel_sizes) == len(conv_strides)
+        if int(d_model) % int(patch_size) != 0:
+            raise ValueError(
+                f"d_model ({d_model}) must be divisible by patch_size ({patch_size})."
+            )
         conv_channels.append(d_model // patch_size)
 
         self.use_checkpoint = use_checkpoint
@@ -512,10 +625,12 @@ class SeisMoLLM(nn.Module):
             )
 
         self.llm_blocks = LLM_Block(
-            start_layer=0,
-            end_layer=llm_layers,
+            start_layer=int(llm_start_layer),
+            end_layer=int(llm_start_layer) + int(llm_layers),
             patch_size=patch_size,
             lora_config=GPT2_lora,
+            d_model=d_model,
+            max_positions=max(2, self.in_samples // max(1, int(patch_size))),
             pretrain=bool(llm_pretrain),
             freeze=bool(llm_freeze),
         )
@@ -530,6 +645,22 @@ class SeisMoLLM(nn.Module):
         else:
             self.cond_embed = None
             self.cond_dropout = None
+
+        # Optional continuous auxiliary features.  EVT6 S-aware classification
+        # uses [normalized S-P interval, valid-S flag].  The embedding is added
+        # to every temporal token after the LLM blocks.
+        self.aux_feature_dim = int(aux_feature_dim or 0)
+        if self.aux_feature_dim > 0:
+            self.aux_embed = nn.Sequential(
+                nn.Linear(self.aux_feature_dim, self.feature_channels),
+                nn.GELU(),
+                nn.Linear(self.feature_channels, self.feature_channels),
+                nn.LayerNorm(self.feature_channels),
+            )
+            self.aux_dropout = nn.Dropout(p=float(aux_embed_dropout or 0.0))
+        else:
+            self.aux_embed = None
+            self.aux_dropout = None
 
         if (output_head in [HeadDetectionPicking]) or (
             isinstance(output_head, partial)
@@ -607,6 +738,22 @@ class SeisMoLLM(nn.Module):
             if self.cond_dropout is not None:
                 emb = self.cond_dropout(emb)
             # Broadcast to [B, feature_channels, L]
+            x = x + emb.unsqueeze(-1)
+
+        if cond is not None and self.aux_embed is not None:
+            if not isinstance(cond, torch.Tensor):
+                cond = torch.as_tensor(cond, device=x.device)
+            cond = cond.to(device=x.device, dtype=x.dtype)
+            if cond.dim() == 1:
+                cond = cond.unsqueeze(-1)
+            if cond.dim() != 2 or cond.size(1) != self.aux_feature_dim:
+                raise ValueError(
+                    f"expected auxiliary input [B,{self.aux_feature_dim}], "
+                    f"got {tuple(cond.shape)}"
+                )
+            emb = self.aux_embed(cond)
+            if self.aux_dropout is not None:
+                emb = self.aux_dropout(emb)
             x = x + emb.unsqueeze(-1)
 
         x = self.out_head(x, x_input)
@@ -693,6 +840,42 @@ def SeisMoLLM_evt6(**kwargs):
         mlp_drop_rate=0.3,
         other_drop_rate=0.3,
         output_head=partial(HeadClassification, out_act_layer=partial(nn.Softmax, dim=-1), num_classes=6),
+        **kwargs,
+    )
+    return model
+
+
+@register_model
+def SeisMoLLM_evt6_gelu(**kwargs):
+    """EVT6 with GELU activations added to the original classification head."""
+    model = SeisMoLLM(
+        path_drop_rate=0.3,
+        attn_drop_rate=0.3,
+        key_drop_rate=0.3,
+        mlp_drop_rate=0.3,
+        other_drop_rate=0.3,
+        output_head=partial(HeadClassificationGELU, out_act_layer=partial(nn.Softmax, dim=-1), num_classes=6),
+        **kwargs,
+    )
+    return model
+
+
+@register_model
+def SeisMoLLM_evt6_spinfo(**kwargs):
+    """EVT6 classifier augmented with normalized S-P and a valid-S flag."""
+    model = SeisMoLLM(
+        path_drop_rate=0.3,
+        attn_drop_rate=0.3,
+        key_drop_rate=0.3,
+        mlp_drop_rate=0.3,
+        other_drop_rate=0.3,
+        aux_feature_dim=2,
+        aux_embed_dropout=0.1,
+        output_head=partial(
+            HeadClassification,
+            out_act_layer=partial(nn.Softmax, dim=-1),
+            num_classes=6,
+        ),
         **kwargs,
     )
     return model
@@ -816,6 +999,51 @@ def SeisMoLLM_evt6_attnpool(**kwargs):
             out_act_layer=partial(nn.Softmax, dim=-1),
             num_classes=6,
             dropout=0.3,
+        ),
+        **kwargs,
+    )
+    return model
+
+
+@register_model
+def SeisMoLLM_evt6_convattn(**kwargs):
+    """EVT6 backbone with a minimally modified convolution-attention head."""
+    model = SeisMoLLM(
+        path_drop_rate=0.3,
+        attn_drop_rate=0.3,
+        key_drop_rate=0.3,
+        mlp_drop_rate=0.3,
+        other_drop_rate=0.3,
+        output_head=partial(
+            HeadClassificationConvAttn,
+            out_act_layer=partial(nn.Softmax, dim=-1),
+            num_classes=6,
+            dropout=0.2,
+        ),
+        **kwargs,
+    )
+    return model
+
+
+@register_model
+def SeisMoLLM_evt6_single_scale(**kwargs):
+    """EVT6 ablation: one convolutional receptive-field scale per tokenizer block.
+
+    This preserves the waveform input, convolutional depth, GPT-2 layers,
+    pretrained weights, LoRA setting, and six-class head of ``SeisMoLLM_evt6``.
+    Only the parallel four-scale tokenizer is replaced by its base-kernel path.
+    """
+    model = SeisMoLLM(
+        conv_scale_num=1,
+        path_drop_rate=0.3,
+        attn_drop_rate=0.3,
+        key_drop_rate=0.3,
+        mlp_drop_rate=0.3,
+        other_drop_rate=0.3,
+        output_head=partial(
+            HeadClassification,
+            out_act_layer=partial(nn.Softmax, dim=-1),
+            num_classes=6,
         ),
         **kwargs,
     )

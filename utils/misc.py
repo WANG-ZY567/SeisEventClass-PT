@@ -212,19 +212,20 @@ def init_distributed_mode() -> bool:
 
 
 def strfargs(args, configs) -> str:
-    """Convert arguments and configs to string."""
+    """Convert run arguments and the selected model config to a string."""
 
     string = ""
     string += "\nArguments:\n"
     for k, v in args.__dict__.items():
         string += f"{k}: {v}\n"
-    string += "\nConfigs:\n"
-    for k, v in configs.__dict__.items():
-        if not (
-            (k.startswith("__") and k.endswith("__"))
-            or callable(v)
-            or isinstance(v, (classmethod, staticmethod))
-        ):
+    string += "\nSelected model config:\n"
+    model_name = getattr(args, "model_name", "")
+    try:
+        selected = configs.get_model_config(model_name)
+    except (AttributeError, KeyError):
+        selected = {}
+    for k, v in selected.items():
+        if k in ("inputs", "labels", "eval", "loss"):
             string += f"{k}: {v}\n"
     return string
 

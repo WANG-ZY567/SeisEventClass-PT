@@ -1,5 +1,6 @@
 import torch.nn as nn
 import torch
+import torch.nn.functional as F
 from torch.nn import HuberLoss
 from typing import Tuple
 
@@ -40,12 +41,80 @@ class ClassBalancedCELoss(nn.Module):
 
     _epsilon = 1e-6
 
-    def __init__(self, samples_per_class, beta: float = 0.9999) -> None:
+    def __init__(
+        self,
+        samples_per_class,
+        beta: float = 0.9999,
+        class_multipliers=None,
+        weight_schedule: str = "fixed",
+        warmup_epochs: int = 10,
+        ramp_epochs: int = 20,
+    ) -> None:
         super().__init__()
         weight = class_balanced_weights(samples_per_class=samples_per_class, beta=beta)
+        multipliers = None
+        if class_multipliers is not None:
+            multipliers = torch.as_tensor(class_multipliers, dtype=torch.float32)
+            if multipliers.ndim != 1 or multipliers.numel() != weight.numel():
+                raise ValueError(
+                    "class_multipliers must have one value per class, got "
+                    f"{multipliers.numel()} values for {weight.numel()} classes"
+                )
+            if bool((multipliers <= 0).any()):
+                raise ValueError("all class_multipliers must be positive")
+            weight = weight * multipliers
+            weight = weight / weight.mean().clamp_min(1e-12)
+        weight_schedule = str(weight_schedule).strip().lower()
+        if weight_schedule not in {"fixed", "deferred_linear"}:
+            raise ValueError(
+                "weight_schedule must be 'fixed' or 'deferred_linear', got "
+                f"{weight_schedule!r}"
+            )
+        if int(warmup_epochs) < 0:
+            raise ValueError("warmup_epochs must be non-negative")
+        if int(ramp_epochs) < 0:
+            raise ValueError("ramp_epochs must be non-negative")
+
+        self.weight_schedule = weight_schedule
+        self.warmup_epochs = int(warmup_epochs)
+        self.ramp_epochs = int(ramp_epochs)
         print(f"[{self._get_name()}] CB beta={beta}, samples_per_class={list(map(int, list(samples_per_class)))}")
-        print(f"[{self._get_name()}] Loss Weights:", weight.detach().cpu().tolist())
-        self.register_buffer("weight", weight)
+        if multipliers is not None:
+            print(f"[{self._get_name()}] Class Multipliers:", multipliers.tolist())
+        print(f"[{self._get_name()}] Target Loss Weights:", weight.detach().cpu().tolist())
+        print(
+            f"[{self._get_name()}] Weight Schedule: {self.weight_schedule}, "
+            f"warmup_epochs={self.warmup_epochs}, ramp_epochs={self.ramp_epochs}"
+        )
+        self.register_buffer("target_weight", weight.clone())
+        self.register_buffer("weight", weight.clone())
+        self._last_schedule_epoch = None
+        self._last_schedule_alpha = None
+        self.set_epoch(0)
+
+    def schedule_alpha(self, epoch: int) -> float:
+        """Return the fraction of target class balancing active at an epoch."""
+        if self.weight_schedule == "fixed":
+            return 1.0
+        epoch = int(epoch)
+        if epoch < self.warmup_epochs:
+            return 0.0
+        if self.ramp_epochs == 0:
+            return 1.0
+        return min(1.0, (epoch - self.warmup_epochs + 1) / self.ramp_epochs)
+
+    @torch.no_grad()
+    def set_epoch(self, epoch: int) -> None:
+        """Update active loss weights for the requested training epoch."""
+        alpha = self.schedule_alpha(epoch)
+        uniform = torch.ones_like(self.target_weight)
+        self.weight.copy_(uniform + alpha * (self.target_weight - uniform))
+        self._last_schedule_epoch = int(epoch)
+        self._last_schedule_alpha = float(alpha)
+        print(
+            f"[{self._get_name()}] epoch={int(epoch)}, schedule_alpha={alpha:.4f}, "
+            f"active_weights={self.weight.detach().cpu().tolist()}"
+        )
 
     def forward(self, preds, targets):
         """Input shape: (N,C,L) or (N,Classes)"""
@@ -53,6 +122,44 @@ class ClassBalancedCELoss(nn.Module):
         loss *= self.weight
         loss = loss.sum(1).mean()
         return loss
+
+
+class LogitAdjustedCELoss(nn.Module):
+    """Mild prior-aware CE for long-tailed multiclass classification.
+
+    The model currently returns softmax probabilities rather than raw logits.
+    ``log(preds)`` differs from the original logits only by a per-sample
+    constant, so applying log-softmax after adding ``tau * log(class_prior)``
+    is equivalent to logit-adjusted cross entropy.
+    """
+
+    _epsilon = 1e-6
+
+    def __init__(self, samples_per_class, tau: float = 0.25) -> None:
+        super().__init__()
+        counts = torch.as_tensor(samples_per_class, dtype=torch.float32)
+        if counts.ndim != 1 or counts.numel() < 2:
+            raise ValueError("samples_per_class must contain at least two classes")
+        if bool((counts <= 0).any()):
+            raise ValueError("all class counts must be positive")
+        self.tau = float(tau)
+        if self.tau < 0:
+            raise ValueError(f"tau must be non-negative, got {self.tau}")
+        prior = counts / counts.sum()
+        self.register_buffer("log_prior", torch.log(prior))
+        print(
+            f"[{self._get_name()}] tau={self.tau}, "
+            f"samples_per_class={counts.to(dtype=torch.int64).tolist()}"
+        )
+
+    def forward(self, preds, targets):
+        log_probs = torch.log(preds.clamp_min(self._epsilon))
+        shape = [1, -1] + [1] * max(0, preds.dim() - 2)
+        adjusted_log_probs = F.log_softmax(
+            log_probs + self.tau * self.log_prior.view(*shape),
+            dim=1,
+        )
+        return -(targets * adjusted_log_probs).sum(dim=1).mean()
 
 
 
@@ -230,6 +337,12 @@ class ConbinationLoss(nn.Module):
             self.losses_weights = [1.0] * len(losses)
 
         self.losses = nn.ModuleList([Loss() for Loss in losses])
+
+    def set_epoch(self, epoch: int) -> None:
+        """Update schedules on any child losses at the start of an epoch."""
+        for loss in self.losses:
+            if hasattr(loss, "set_epoch"):
+                loss.set_epoch(epoch)
 
     def forward(self, preds: Tuple[torch.Tensor], targets: Tuple[torch.Tensor]):
         sum_loss = 0.0

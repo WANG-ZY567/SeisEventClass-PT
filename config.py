@@ -11,6 +11,7 @@ from models import (
     BinaryFocalLoss,
     CELoss,
     ClassBalancedCELoss,
+    LogitAdjustedCELoss,
     ConbinationLoss,
     FocalLoss,
     HuberLoss,
@@ -196,6 +197,57 @@ class Config:
             "outputs_transform_for_loss": None,
             "outputs_transform_for_results": None,
         },
+        "^SeisMoLLM_evt6_gelu$": {
+            "loss": partial(CELoss, weight=[1, 1, 1, 1, 1, 1]),
+            "inputs": [["z", "n", "e"]],
+            "labels": ["evt6"],
+            "eval": ["evt6"],
+            "targets_transform_for_loss": None,
+            "outputs_transform_for_loss": None,
+            "outputs_transform_for_results": None,
+        },
+        # EVT6 classifier with explicit, inference-time phase information:
+        # [normalized S-P interval, valid-S flag].  The waveform path and
+        # classification target are otherwise identical to SeisMoLLM_evt6.
+        "^SeisMoLLM_evt6_spinfo$": {
+            "loss": partial(CELoss, weight=[1, 1, 1, 1, 1, 1]),
+            "inputs": [["z", "n", "e"], "sp_info"],
+            "labels": ["evt6"],
+            "eval": ["evt6"],
+            "targets_transform_for_loss": None,
+            "outputs_transform_for_loss": None,
+            "outputs_transform_for_results": None,
+        },
+        # Reviewer-aligned non-LLM EVT6 baselines.  They intentionally share
+        # the same inputs, labels, loss override and evaluation path as the
+        # proposed model so comparisons use an identical data protocol.
+        "^CNNsmall_evt6$": {
+            "loss": partial(CELoss, weight=[1, 1, 1, 1, 1, 1]),
+            "inputs": [["z", "n", "e"]],
+            "labels": ["evt6"],
+            "eval": ["evt6"],
+            "targets_transform_for_loss": None,
+            "outputs_transform_for_loss": None,
+            "outputs_transform_for_results": None,
+        },
+        "^InceptionTime_evt6$": {
+            "loss": partial(CELoss, weight=[1, 1, 1, 1, 1, 1]),
+            "inputs": [["z", "n", "e"]],
+            "labels": ["evt6"],
+            "eval": ["evt6"],
+            "targets_transform_for_loss": None,
+            "outputs_transform_for_loss": None,
+            "outputs_transform_for_results": None,
+        },
+        "^ResNet1D_evt6$": {
+            "loss": partial(CELoss, weight=[1, 1, 1, 1, 1, 1]),
+            "inputs": [["z", "n", "e"]],
+            "labels": ["evt6"],
+            "eval": ["evt6"],
+            "targets_transform_for_loss": None,
+            "outputs_transform_for_loss": None,
+            "outputs_transform_for_results": None,
+        },
         # EVT6 channel ablation (single-component vs 3C) for seismic cross-app analysis.
         # These are model-name aliases only; they reuse the same architecture/training loop.
         "^SeisMoLLM_evt6_z$": {
@@ -271,6 +323,24 @@ class Config:
             "outputs_transform_for_results": None,
         },
         "^SeisMoLLM_evt6_attnpool$": {
+            "loss": partial(CELoss, weight=[1, 1, 1, 1, 1, 1]),
+            "inputs": [["z", "n", "e"]],
+            "labels": ["evt6"],
+            "eval": ["evt6"],
+            "targets_transform_for_loss": None,
+            "outputs_transform_for_loss": None,
+            "outputs_transform_for_results": None,
+        },
+        "^SeisMoLLM_evt6_convattn$": {
+            "loss": partial(CELoss, weight=[1, 1, 1, 1, 1, 1]),
+            "inputs": [["z", "n", "e"]],
+            "labels": ["evt6"],
+            "eval": ["evt6"],
+            "targets_transform_for_loss": None,
+            "outputs_transform_for_loss": None,
+            "outputs_transform_for_results": None,
+        },
+        "^SeisMoLLM_evt6_single_scale$": {
             "loss": partial(CELoss, weight=[1, 1, 1, 1, 1, 1]),
             "inputs": [["z", "n", "e"]],
             "labels": ["evt6"],
@@ -581,8 +651,100 @@ class Config:
         return int(ch)
 
     @classmethod
-    def get_loss(cls, model_name: str):
+    def get_loss(cls, model_name: str, args=None):
         conf = cls.get_model_config(model_name)
+        loss_name = str(getattr(args, "loss_name", "") or "").strip().lower()
+
+        long_tail_losses = {
+            "class_balanced_ce", "class-balanced-ce", "cb_ce", "cbce",
+            "logit_adjusted_ce", "logit-adjusted-ce", "logit_adjustment", "la_ce",
+        }
+        if loss_name in long_tail_losses:
+            raw_counts = str(getattr(args, "cb_samples_per_class", "") or "").strip()
+            if not raw_counts:
+                raise ValueError(
+                    "--cb-samples-per-class is required when "
+                    "a long-tail loss is used"
+                )
+            try:
+                counts = [
+                    int(value)
+                    for value in re.split(r"[\s,;]+", raw_counts)
+                    if value.strip()
+                ]
+            except ValueError as exc:
+                raise ValueError(
+                    "--cb-samples-per-class must be a comma/space separated list of integers"
+                ) from exc
+            if not counts or any(value <= 0 for value in counts):
+                raise ValueError("all class counts must be positive integers")
+
+            labels = conf.get("labels", [])
+            multihead_cb = (
+                model_name in {"SeisMoLLM_evt6_multihead_w01", "SeisMoLLM_evt6_multihead_w005"}
+                and labels == ["evt6", "evt6_sp", "evt6_seot_vs_others", "evt6_se_vs_ot"]
+                and loss_name in {"class_balanced_ce", "class-balanced-ce", "cb_ce", "cbce"}
+            )
+            if (len(labels) != 1 or not isinstance(labels[0], str)) and not multihead_cb:
+                raise ValueError(
+                    "class_balanced_ce currently supports a single classification target"
+                )
+            expected_classes = cls.get_num_classes(labels[0])
+            if expected_classes and len(counts) != expected_classes:
+                raise ValueError(
+                    f"expected {expected_classes} class counts for {labels[0]}, "
+                    f"got {len(counts)}"
+                )
+            if loss_name in {"logit_adjusted_ce", "logit-adjusted-ce", "logit_adjustment", "la_ce"}:
+                return LogitAdjustedCELoss(
+                    samples_per_class=counts,
+                    tau=float(getattr(args, "logit_adjust_tau", 0.25)),
+                )
+
+            raw_multipliers = str(
+                getattr(args, "cb_class_multipliers", "") or ""
+            ).strip()
+            multipliers = None
+            if raw_multipliers:
+                try:
+                    multipliers = [
+                        float(value)
+                        for value in re.split(r"[\s,;]+", raw_multipliers)
+                        if value.strip()
+                    ]
+                except ValueError as exc:
+                    raise ValueError(
+                        "--cb-class-multipliers must be a comma/space separated list of numbers"
+                    ) from exc
+                if len(multipliers) != expected_classes:
+                    raise ValueError(
+                        f"expected {expected_classes} class multipliers for {labels[0]}, "
+                        f"got {len(multipliers)}"
+                    )
+                if any(value <= 0 for value in multipliers):
+                    raise ValueError("all class multipliers must be positive")
+            primary_loss = ClassBalancedCELoss(
+                samples_per_class=counts,
+                beta=float(getattr(args, "cb_beta", 0.9999)),
+                class_multipliers=multipliers,
+                weight_schedule=str(
+                    getattr(args, "cb_weight_schedule", "fixed") or "fixed"
+                ),
+                warmup_epochs=int(getattr(args, "cb_warmup_epochs", 10)),
+                ramp_epochs=int(getattr(args, "cb_ramp_epochs", 20)),
+            )
+            if multihead_cb:
+                combined = conf["loss"]()
+                combined.losses[0] = primary_loss
+                return combined
+            return primary_loss
+
+        if loss_name not in {"", "default", "ce", "cross_entropy"}:
+            raise ValueError(
+                f"unsupported --loss-name '{loss_name}'. "
+                "Supported values: default, ce, class_balanced_ce, logit_adjusted_ce"
+            )
+
         loss = conf["loss"]
         # loss can be a class, a partial, or a callable returning nn.Module.
         if isinstance(loss, type):

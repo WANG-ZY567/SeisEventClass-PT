@@ -11,6 +11,10 @@ from .validate import validate
 def test_worker(args, device):
     logger.set_logger("test")
 
+    eval_split = str(getattr(args, "eval_split", "test") or "test").strip().lower()
+    if eval_split not in {"val", "test"}:
+        raise ValueError(f"--eval-split must be val or test, got {eval_split}")
+
     model_inputs, model_labels, model_tasks = Config.get_model_config_(
         args.model_name, "inputs", "labels", "eval"
     )
@@ -21,15 +25,19 @@ def test_worker(args, device):
         input_names=model_inputs,
         label_names=model_labels,
         task_names=model_tasks,
-        mode="test",
+        mode=eval_split,
     )
 
-    test_sampler = torch.utils.data.DistributedSampler(test_dataset) if is_dist_avail_and_initialized() else None
+    test_sampler = (
+        torch.utils.data.DistributedSampler(test_dataset, shuffle=False)
+        if is_dist_avail_and_initialized()
+        else None
+    )
 
     test_loader = torch.utils.data.DataLoader(
         test_dataset,
         batch_size=args.batch_size,
-        shuffle=((not is_dist_avail_and_initialized()) and args.shuffle),
+        shuffle=False,
         pin_memory=args.pin_memory,
         num_workers=args.workers,
         sampler=test_sampler,
@@ -48,12 +56,15 @@ def test_worker(args, device):
         )
         logger.info(f"Model loaded: {args.checkpoint}")
 
-    loss_fn = Config.get_loss(model_name=args.model_name).to(device)
+    loss_fn = Config.get_loss(model_name=args.model_name, args=args).to(device)
 
     model = create_model(
         model_name=args.model_name,
         in_channels=in_channels,
         in_samples=args.in_samples,
+        llm_start_layer=int(getattr(args, "LLM_start_layer", 0)),
+        llm_layers=int(getattr(args, "LLM_layer_num", 3)),
+        d_model=int(getattr(args, "d_model", 768)),
         llm_pretrain=bool(getattr(args, "pretrain", True)),
         llm_freeze=bool(getattr(args, "freeze", True)),
     )

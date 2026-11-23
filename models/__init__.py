@@ -24,6 +24,7 @@ from .loss import (
     HuberLoss,
     MousaviLoss,
     ClassBalancedCELoss,
+    LogitAdjustedCELoss,
     class_balanced_weights,
 )
 

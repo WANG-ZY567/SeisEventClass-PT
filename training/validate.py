@@ -84,6 +84,10 @@ def _tta_augment_waveform(x: torch.Tensor, args) -> torch.Tensor:
         denom = x_aug.std(dim=-1, keepdim=True)
         denom = torch.where(denom == 0, torch.ones_like(denom), denom)
         x_aug = x_aug / denom
+    elif norm_mode == "joint_std":
+        denom = x_aug.square().mean(dim=(-2, -1), keepdim=True).sqrt()
+        denom = torch.where(denom == 0, torch.ones_like(denom), denom)
+        x_aug = x_aug / denom
     elif norm_mode == "":
         pass
 
@@ -226,7 +230,7 @@ def validate(
             loss = loss_fn(outputs_for_loss, loss_targets)
 
             # Batch size of this step
-            step_batch_size = x.size(0)
+            step_batch_size = x.size(0) if isinstance(x, torch.Tensor) else x[0].size(0)
 
             # Reduce
             if is_dist_avail_and_initialized():
@@ -286,7 +290,10 @@ def validate(
     # print(f'Mean step time: {mean_syn:.2f} ms, std: {std_syn}')
 
     if results_saver is not None:
-        results_save_path = get_safe_path(os.path.join(logger.logdir(),f"test_results_{val_loader.dataset.name()}.csv"))
+        eval_split = str(getattr(args, "eval_split", "test") or "test").strip().lower()
+        results_save_path = get_safe_path(
+            os.path.join(logger.logdir(), f"{eval_split}_results_{val_loader.dataset.name()}.csv")
+        )
         results_saver.save_as_csv(results_save_path)
     
     loss_avg = average_meters["loss"].avg
