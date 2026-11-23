@@ -18,6 +18,10 @@ manuscript.
 - Removed virtual environments, smoke-test artefacts, caches, raw data,
   checkpoints, and historical experiment outputs from the release copy.
 - Added a GitHub Actions workflow and local public-release audit.
+- Excluded independently reproduced comparison methods, their adapters,
+  checkpoints, and experiment runners from the public repository. The release
+  contains only the proposed model, matched component ablations, data
+  preparation, and associated evaluation utilities.
 
 ## Before publishing
 

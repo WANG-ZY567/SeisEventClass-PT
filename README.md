@@ -43,7 +43,7 @@ SeisEventClass-PT/
 ├── main.py                       # Main train/test entry
 ├── config.py                     # Model, loss, label, and metric registry
 ├── datasets/                     # Dataset adapters
-├── models/                       # Tokenizer, GPT-2/LoRA model, and baselines
+├── models/                       # Tokenizer, GPT-2/LoRA model, and upstream components
 ├── training/                     # Train, validation, and test loops
 ├── tools/                        # Data, analysis, external evaluation, ablations
 ├── scripts/                      # Reproducible paper train/eval commands

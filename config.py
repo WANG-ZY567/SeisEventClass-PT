@@ -218,36 +218,6 @@ class Config:
             "outputs_transform_for_loss": None,
             "outputs_transform_for_results": None,
         },
-        # Reviewer-aligned non-LLM EVT6 baselines.  They intentionally share
-        # the same inputs, labels, loss override and evaluation path as the
-        # proposed model so comparisons use an identical data protocol.
-        "^CNNsmall_evt6$": {
-            "loss": partial(CELoss, weight=[1, 1, 1, 1, 1, 1]),
-            "inputs": [["z", "n", "e"]],
-            "labels": ["evt6"],
-            "eval": ["evt6"],
-            "targets_transform_for_loss": None,
-            "outputs_transform_for_loss": None,
-            "outputs_transform_for_results": None,
-        },
-        "^InceptionTime_evt6$": {
-            "loss": partial(CELoss, weight=[1, 1, 1, 1, 1, 1]),
-            "inputs": [["z", "n", "e"]],
-            "labels": ["evt6"],
-            "eval": ["evt6"],
-            "targets_transform_for_loss": None,
-            "outputs_transform_for_loss": None,
-            "outputs_transform_for_results": None,
-        },
-        "^ResNet1D_evt6$": {
-            "loss": partial(CELoss, weight=[1, 1, 1, 1, 1, 1]),
-            "inputs": [["z", "n", "e"]],
-            "labels": ["evt6"],
-            "eval": ["evt6"],
-            "targets_transform_for_loss": None,
-            "outputs_transform_for_loss": None,
-            "outputs_transform_for_results": None,
-        },
         # EVT6 channel ablation (single-component vs 3C) for seismic cross-app analysis.
         # These are model-name aliases only; they reuse the same architecture/training loop.
         "^SeisMoLLM_evt6_z$": {
